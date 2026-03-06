@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Hizmet Şartları — Pixlands</title>
+  <link rel="icon" type="image/png" href="/pngs/pixlands.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#0a0f1e;color:#fff;font-family:'Inter',sans-serif;min-height:100vh;}
+    .bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+    .bg-blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.35;animation:blobmove 14s ease-in-out infinite alternate;}
+    .bg-blob-1{width:500px;height:500px;background:radial-gradient(circle,#1e40af,transparent 70%);top:-10%;left:-10%;}
+    .bg-blob-2{width:400px;height:400px;background:radial-gradient(circle,#1d4ed8,transparent 70%);bottom:-10%;right:-10%;animation-delay:-5s;}
+    @keyframes blobmove{0%{transform:scale(1) translate(0,0);}100%{transform:scale(1.1) translate(15px,-15px);}
+    }
+    .page{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:80px 32px 80px;}
+    .back-link{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.4);font-size:.82rem;text-decoration:none;margin-bottom:36px;transition:color .15s;}
+    .back-link:hover{color:#fff;}
+    .back-link svg{width:14px;height:14px;}
+    h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:900;letter-spacing:-.5px;margin-bottom:8px;}
+    .meta{font-size:.8rem;color:rgba(255,255,255,.3);margin-bottom:40px;}
+    h2{font-size:1rem;font-weight:700;color:#60a5fa;margin:32px 0 10px;}
+    p{font-size:.9rem;color:rgba(255,255,255,.6);line-height:1.8;margin-bottom:12px;}
+    ul{padding-left:20px;margin-bottom:12px;}
+    ul li{font-size:.9rem;color:rgba(255,255,255,.6);line-height:1.8;margin-bottom:4px;}
+    .divider{height:1px;background:rgba(255,255,255,.06);margin:28px 0;}
+  </style>
+</head>
+<body>
+<div class="bg-canvas"><div class="bg-blob bg-blob-1"></div><div class="bg-blob bg-blob-2"></div></div>
+<div class="page">
+  <a href="/" class="back-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>Ana Sayfaya Dön</a>
+  <h1>Hizmet Şartları</h1>
+  <div class="meta">Son güncelleme: Mart 2026</div>
+
+  <h2>1. Kabul</h2>
+  <p>Pixlands platformunu kullanarak bu hizmet şartlarını kabul etmiş sayılırsınız. Şartları kabul etmiyorsanız platformu kullanmayınız.</p>
+
+  <div class="divider"></div>
+  <h2>2. Kullanım Koşulları</h2>
+  <p>Platform yalnızca yetkili kullanıcılar tarafından kullanılabilir. Aşağıdaki durumlar yasaktır:</p>
+  <ul>
+    <li>Platformu kötüye kullanmak veya başkalarına zarar vermek</li>
+    <li>Sistem güvenliğini ihlal etmeye çalışmak</li>
+    <li>Yetkisiz rütbe değişikliği yapmak</li>
+    <li>Sahte kimlikle giriş yapmak</li>
+  </ul>
+
+  <div class="divider"></div>
+  <h2>3. Hesap Güvenliği</h2>
+  <p>Discord hesabınızın güvenliğinden siz sorumlusunuz. Hesabınızın başkaları tarafından kullanılmasından doğacak sonuçlardan Pixlands sorumlu değildir.</p>
+
+  <div class="divider"></div>
+  <h2>4. RoWifi Entegrasyonu</h2>
+  <p>Rütbe işlemleri için RoWifi doğrulaması zorunludur. RoWifi üçüncü taraf bir hizmettir; bu hizmetle ilgili sorunlardan Pixlands sorumlu tutulamaz.</p>
+
+  <div class="divider"></div>
+  <h2>5. Değişiklikler</h2>
+  <p>Bu şartlar önceden haber verilmeksizin güncellenebilir. Güncel şartları düzenli olarak kontrol etmeniz önerilir.</p>
+
+  <div class="divider"></div>
+  <h2>6. İletişim</h2>
+  <p>Sorularınız için Discord sunucumuza katılabilirsiniz.</p>
+</div>
+</body>
+</html>

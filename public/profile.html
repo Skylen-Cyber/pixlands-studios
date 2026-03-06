@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Pixlands</title>
+  <link rel="icon" type="image/png" href="/pngs/pixlands.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#0a0f1e;color:#fff;font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+    /* BG */
+    .bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+    .bg-blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.3;animation:blobmove 14s ease-in-out infinite alternate;}
+    .bg-blob-1{width:500px;height:500px;background:radial-gradient(circle,#1e40af,transparent 70%);top:-10%;left:-10%;animation-delay:0s;}
+    .bg-blob-2{width:400px;height:400px;background:radial-gradient(circle,#1d4ed8,transparent 70%);bottom:-10%;right:-10%;animation-delay:-5s;}
+    @keyframes blobmove{0%{transform:scale(1) translate(0,0);}100%{transform:scale(1.12) translate(15px,-15px);}}
+    /* LOADING */
+    #lo{position:fixed;inset:0;z-index:8000;background:#0a0f1e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .3s;}
+    #lo.out{opacity:0;pointer-events:none;}
+    .spin{width:34px;height:34px;border:3px solid rgba(96,165,250,.2);border-top:3px solid #60a5fa;border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    #lo-msg{font-size:.82rem;color:rgba(255,255,255,.35);font-weight:500;opacity:0;transition:opacity .5s;text-align:center;padding:0 20px;}
+    #lo-msg.show{opacity:1;}
+    /* ═══ NAVBAR — Pella floating pill ═══ */
+    #nb-wrap{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;justify-content:center;padding:14px 20px 0;pointer-events:none;}
+    #nb{pointer-events:all;display:flex;align-items:center;justify-content:space-between;padding:0 18px 0 14px;height:52px;background:rgba(10,15,30,.28);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:1px solid rgba(255,255,255,.12);border-radius:16px;width:100%;max-width:860px;gap:8px;box-shadow:0 4px 32px rgba(0,0,0,.2);}
+    .nbrand{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;}
+    .nbrand img{width:28px;height:28px;object-fit:contain;border-radius:7px;}
+    .nbrand span{font-size:.98rem;font-weight:800;color:#fff;letter-spacing:-.2px;}
+    .nlinks{display:flex;align-items:center;gap:1px;}
+    .nlink{color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;text-decoration:none;padding:5px 11px;border-radius:7px;transition:color .15s,background .15s;white-space:nowrap;}
+    .nlink:hover{color:#fff;background:rgba(255,255,255,.08);}
+    .nlink.act{color:#60a5fa;font-weight:700;}
+    .nright{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+    .nbtn-blue{display:inline-flex;align-items:center;gap:6px;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:.82rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .15s;}
+    .nbtn-blue:hover{background:#1d4ed8;}
+    .npill{display:flex;align-items:center;gap:6px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:2px 11px 2px 2px;transition:background .15s;background:rgba(255,255,255,.05);}
+    .npill:hover{background:rgba(255,255,255,.12);}
+    .npill img{width:24px;height:24px;border-radius:50%;object-fit:cover;}
+    .npill span{font-size:.8rem;font-weight:600;color:#fff;}
+    .npill-wrap{position:relative;display:inline-flex;}
+    .warn-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;animation:pulse-dot 1.8s ease-in-out infinite;}
+    @keyframes pulse-dot{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.4);opacity:.7;}}
+    .npill-icon-wrap{position:relative;display:inline-flex;}
+    .warn-dot-mob{position:absolute;bottom:0;right:0;width:9px;height:9px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;animation:pulse-dot 1.8s ease-in-out infinite;}
+    .nham-area{display:none;align-items:center;gap:8px;}
+    .nham{display:flex;flex-direction:column;gap:5px;cursor:pointer;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:7px;width:36px;height:36px;align-items:center;justify-content:center;padding:0;flex-shrink:0;}
+    .nham span{display:block;width:16px;height:2px;background:#fff;border-radius:2px;transition:transform .22s,opacity .22s;}
+    .nham.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+    .nham.open span:nth-child(2){opacity:0;}
+    .nham.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+    #mob{display:none;position:fixed;top:66px;left:0;right:0;z-index:190;background:rgba(10,15,30,.45);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 18px 20px;flex-direction:column;gap:2px;box-shadow:0 8px 32px rgba(0,0,0,.3);}
+    #mob.open{display:flex;}
+    .mlink{display:block;color:rgba(255,255,255,.6);font-size:.93rem;font-weight:500;padding:10px 12px;border-radius:7px;text-decoration:none;transition:background .13s,color .13s;}
+    .mlink:hover{background:rgba(255,255,255,.08);color:#fff;}
+    .mlink.act{color:#60a5fa;font-weight:700;}
+    .mdiv{height:1px;background:rgba(255,255,255,.07);margin:8px 0;}
+    .mbtn{display:flex;align-items:center;gap:7px;border:none;border-radius:8px;padding:11px 16px;font-size:.92rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:4px;text-decoration:none;justify-content:center;}
+    .mbtn-blue{background:#2563eb;color:#fff;}
+    @media(max-width:700px){#nb-wrap{padding:10px 10px 0;}#nb{padding:0 12px 0 10px;border-radius:12px;max-width:100%;}.nlinks,.nright{display:none;}.nham-area{display:flex;}}
+    /* PAGE */
+    .page{position:relative;z-index:1;flex:1;display:flex;justify-content:center;align-items:center;padding:90px 20px 40px;}
+    /* PROFILE CARD */
+    .pwrap{width:100%;max-width:860px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:20px;box-shadow:0 4px 40px rgba(0,0,0,.4);overflow:hidden;display:grid;grid-template-columns:1fr 1fr;}
+    @media(max-width:640px){.pwrap{grid-template-columns:1fr;max-width:430px;}.pright{border-left:none!important;border-top:1px solid rgba(255,255,255,.07)!important;}}
+    /* LEFT */
+    .pleft{padding:30px 26px;display:flex;flex-direction:column;}
+    .ptop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;}
+    .pmeta-label{font-size:.7rem;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;}
+    .logout-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 13px;font-size:.8rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;color:rgba(255,255,255,.6);transition:background .15s,border-color .15s,color .15s;}
+    .logout-btn:hover{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.3);color:#f87171;}
+    .logout-btn svg{width:14px;height:14px;}
+    .pav-row{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+    .pav{width:72px;height:72px;border-radius:18px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.1);}
+    .pname{font-size:1.6rem;font-weight:900;letter-spacing:-.5px;line-height:1.1;color:#fff;}
+    .phandle{font-size:.88rem;color:rgba(255,255,255,.35);margin-top:3px;}
+    .prole-badge{display:inline-flex;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);border-radius:7px;padding:4px 12px;font-size:.78rem;font-weight:700;color:#93c5fd;margin-bottom:18px;}
+    .pib{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+    .pib-label{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#60a5fa;margin-bottom:4px;}
+    .pib-val{font-size:.9rem;font-weight:600;color:#fff;}
+    /* RIGHT */
+    .pright{padding:26px 22px;border-left:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;}
+    .pright-hdr{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.3);margin-bottom:16px;}
+    /* rowifi block */
+    .rwblock{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px;margin-bottom:12px;}
+    .rwav-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+    .rwav{width:54px;height:54px;border-radius:50%;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.1);}
+    .rwname{font-size:.97rem;font-weight:700;color:#fff;}
+    .rwsub{font-size:.76rem;color:rgba(255,255,255,.35);margin-top:2px;}
+    .rw-refresh{display:flex;align-items:center;gap:5px;width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 13px;font-size:.8rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;color:rgba(255,255,255,.65);transition:all .15s;justify-content:center;}
+    .rw-refresh:hover{border-color:#3b82f6;color:#60a5fa;}
+    .rw-refresh:disabled{opacity:.4;cursor:not-allowed;}
+    .rw-refresh img{width:13px;height:13px;object-fit:contain;}
+    .rmsg{font-size:.76rem;font-weight:600;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .25s;margin-top:7px;text-align:center;min-height:28px;display:block;}
+    .rmsg.show{opacity:1;}
+    .rmsg.ok{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.2);color:#4ade80;}
+    .rmsg.no{background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);color:#f87171;}
+    /* warn blocks */
+    .wblock{border-radius:12px;padding:15px;margin-bottom:12px;}
+    .wblock-guild{background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.2);}
+    .wblock-rw{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);}
+    .wblock-title{font-size:.87rem;font-weight:700;margin-bottom:3px;}
+    .wblock-guild .wblock-title{color:#fbbf24;}
+    .wblock-rw .wblock-title{color:#f87171;}
+    .wblock-sub{font-size:.76rem;margin-bottom:10px;}
+    .wblock-guild .wblock-sub{color:rgba(234,179,8,.55);}
+    .wblock-rw .wblock-sub{color:rgba(248,113,113,.5);}
+    .wact-btn{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:8px;padding:7px 14px;font-size:.8rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;text-decoration:none;transition:opacity .15s;}
+    .wact-btn:hover{opacity:.85;}
+    .wact-discord{background:#5865f2;color:#fff;}
+    .wact-discord img{width:13px;height:13px;}
+    .wact-rowifi{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);}
+    .wact-rowifi img{width:13px;height:13px;}
+    /* CONFIRM */
+    #conf{display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;}
+    #conf.on{display:flex;}
+    #conf-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);}
+    #conf-box{position:relative;z-index:1;background:#131928;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 24px;max-width:300px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+    #conf-box h3{font-size:.97rem;font-weight:800;margin-bottom:7px;color:#fff;}
+    #conf-box p{color:rgba(255,255,255,.45);font-size:.84rem;line-height:1.6;margin-bottom:18px;}
+    .cbts{display:flex;gap:7px;}
+    .cno{flex:1;padding:9px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.1);border-radius:8px;font-size:.85rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;}
+    .cyes{flex:1;padding:9px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;}
+    .cyes:hover{background:#b91c1c;}
+    /* FOOTER */
+    footer{position:relative;z-index:1;background:rgba(0,0,0,.3);border-top:1px solid rgba(255,255,255,.06);padding:20px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .fbrand{display:flex;align-items:center;gap:7px;flex:1;}
+    .fbrand img{width:22px;height:22px;border-radius:6px;object-fit:contain;}
+    .fbrand span{font-size:.85rem;font-weight:800;color:#fff;}
+    .fcopy{font-size:.76rem;color:rgba(255,255,255,.25);flex:1;text-align:center;}
+    .footer-links{display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;}
+    .footer-link{font-size:.73rem;font-weight:600;color:rgba(255,255,255,.5);text-decoration:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:4px 10px;transition:background .15s,color .15s;}
+    .footer-link:hover{background:rgba(255,255,255,.1);color:#fff;}
+    .footer-discord{display:inline-flex;align-items:center;gap:5px;background:rgba(88,101,242,.13);border:1px solid rgba(88,101,242,.28);border-radius:7px;padding:4px 10px;font-size:.73rem;font-weight:600;color:#818cf8;text-decoration:none;transition:background .15s;}
+    .footer-discord:hover{background:rgba(88,101,242,.22);}
+    @media(max-width:700px){footer{flex-direction:column;align-items:center;padding:14px 20px;gap:10px;}.fbrand{flex:none;justify-content:center;}.fcopy{flex:none;text-align:center;}.footer-links{flex:none;justify-content:center;flex-wrap:wrap;}}
+  </style>
+</head>
+<body>
+<div class="bg-canvas"><div class="bg-blob bg-blob-1"></div><div class="bg-blob bg-blob-2"></div></div>
+<div id="lo"><div class="spin"></div><div id="lo-msg">Bu işlem biraz uzun sürebilir...</div></div>
+
+<div id="nb-wrap"><nav id="nb">
+  <a href="/" class="nbrand"><img src="/pngs/pixlands.png" id="nav-logo" alt=""/><span id="nav-name">Pixlands</span></a>
+  <div class="nlinks" id="nlinks">
+    <a href="/" class="nlink">Ana Sayfa</a>
+    <a href="/dashboard" class="nlink" id="nl-dash">Dashboard</a>
+    <a href="/profile" class="nlink act" id="nl-profile">Profil</a>
+  </div>
+  <div class="nright" id="nright">
+    <div class="npill-wrap" id="nav-pill-wrap">
+      <a href="/profile" class="npill" id="nav-pill"><img id="nav-av" src="" alt=""/><span id="nav-un"></span></a>
+    </div>
+  </div>
+  <div class="nham-area" id="nham-area">
+    <div class="npill-icon-wrap" id="mob-pill-icon-wrap">
+      <a href="/profile" style="display:flex"><img id="mob-av" src="" style="width:28px;height:28px;border-radius:50%;object-fit:cover" alt=""/></a>
+    </div>
+    <button class="nham" id="nham" onclick="toggleMob()"><span></span><span></span><span></span></button>
+  </div>
+</nav></div>
+<div id="mob">
+  <a href="/" class="mlink" onclick="closeMob()">Ana Sayfa</a>
+  <a href="/dashboard" class="mlink" id="ml-dash" onclick="closeMob()">Dashboard</a>
+  <a href="/profile" class="mlink act" id="ml-profile" onclick="closeMob()">Profil</a>
+  <div class="mdiv"></div>
+</div>
+
+<div class="page">
+  <div class="pwrap" id="pwrap"></div>
+</div>
+
+<div id="conf"><div id="conf-bg" onclick="closeConf()"></div><div id="conf-box"><h3>Oturumu Kapat</h3><p>Hesabından çıkış yapmak istediğinden emin misin?</p><div class="cbts"><button class="cno" onclick="closeConf()">İptal</button><button class="cyes" onclick="doLogout()">Çıkış Yap</button></div></div></div>
+
+<footer>
+  <div class="fbrand"><img src="/pngs/pixlands.png" alt=""/><span id="fname">Pixlands</span></div>
+  <div class="fcopy" id="fcopy">© 2026 Pixlands — Tüm hakları saklıdır.</div>
+  <div class="footer-links">
+    <a href="/terms" class="footer-link">Hizmet Şartları</a>
+    <a href="/privacy" class="footer-link">Gizlilik Politikası</a>
+    <a href="" id="footer-discord" class="footer-discord" target="_blank">
+      <img src="/pngs/discord.png" style="width:13px;height:13px;object-fit:contain" alt=""/>
+      <span>Discord</span>
+    </a>
+  </div>
+</footer>
+
+<script>
+let INVITE="/";
+let SITE_NAME="Pixlands";
+function av(id,h){return h?`https://cdn.discordapp.com/avatars/${id}/${h}.png?size=128`:`https://cdn.discordapp.com/embed/avatars/0.png`;}
+function toggleMob(){const m=document.getElementById("mob"),h=document.getElementById("nham");const o=m.classList.contains("open");m.classList.toggle("open",!o);h.classList.toggle("open",!o);}
+function closeMob(){document.getElementById("mob").classList.remove("open");document.getElementById("nham")?.classList.remove("open");}
+function openConf(){document.getElementById("conf").classList.add("on");}
+function closeConf(){document.getElementById("conf").classList.remove("on");}
+async function doLogout(){try{await fetch("/auth/logout",{method:"POST"});}catch(e){}window.location.href="/";}
+let lastRef=0;
+function showRefMsg(type,msg){const el=document.getElementById("rmsg");if(!el)return;el.textContent=msg;el.className="rmsg show "+type;setTimeout(()=>el.classList.remove("show"),3500);}
+async function refreshRowifi(){
+  const btn=document.getElementById("rfbtn");
+  const BTN_DEFAULT=`<img src="/pngs/rowifi.png" alt=""/>Bilgileri Güncelle`;
+  btn.disabled=true;btn.textContent="Yenileniyor...";
+  try{
+    const res=await fetch("/auth/refresh-rowifi",{method:"POST"});
+    const d=await res.json();
+    if(res.status===429){
+      showRefMsg("no",d.error||"Lütfen bekleyin.");
+      if(d.retryAfter){
+        const end=Date.now()+d.retryAfter*1000;
+        const tick=()=>{const left=Math.ceil((end-Date.now())/1000);if(left<=0){btn.disabled=false;btn.innerHTML=BTN_DEFAULT;return;}btn.textContent=`Bekleyin (${left}s)`;btn.disabled=true;setTimeout(tick,1000);};tick();return;
+      }
+    } else if(!res.ok){showRefMsg("no",d.error||"Hata.");}
+    else if(!d.changed){showRefMsg("no","Bilgi değişmedi.");}
+    else{showRefMsg("ok","Güncellendi!");setTimeout(()=>location.reload(),700);return;}
+  }catch(e){showRefMsg("no","Bağlanılamadı.");}
+  btn.disabled=false;btn.innerHTML=BTN_DEFAULT;
+}
+async function getRbxThumb(id){try{const r=await fetch(`/api/roblox-thumbnail?userId=${id}`);const d=await r.json();return d.url||"";}catch(e){return "";}}
+function discordCreatedAt(id){
+  const ms=Number(BigInt(id)>>22n)+1420070400000;
+  const d=new Date(ms);
+  const months=["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+async function render(u,teamRole,isOwnProfile,viewerIsTeam){
+  const inGuild=u.in_guild,hasRw=!!u.roblox_username;
+  let rbxThumb="";
+  if(hasRw)rbxThumb=await getRbxThumb(u.roblox_id);
+  const rbxSrc=rbxThumb||(hasRw?`https://www.roblox.com/headshot-thumbnail/image?userId=${u.roblox_id}&width=150&height=150&format=png`:"");
+  const discAv=av(u.id,u.avatar);
+  const dname=u.global_name||u.username;
+  const memberLabel=inGuild?"Topluluğa katılan üye":"Topluluğa katılmadan destek veren üye";
+  let rightTitle=inGuild?"RoWifi Bilgileri":"Kullanıcı Bilgileri";
+  let rightContent="";
+  const showRefreshBtn=isOwnProfile||(viewerIsTeam&&!isOwnProfile);
+  if(!inGuild){
+    rightContent=`<div class="wblock wblock-guild"><div class="wblock-title">Discord Sunucusuna Katılmadı</div><div class="wblock-sub">${isOwnProfile?"(Katıldıysanız sayfayı yenileyin)":""}</div>${isOwnProfile?`<a href="${INVITE}" target="_blank" class="wact-btn wact-discord"><img src="/pngs/discord.png" alt=""/>Discord'a Katıl</a>`:""}</div>`;
+  } else if(!hasRw){
+    rightContent=`<div class="wblock wblock-rw"><div class="wblock-title">RoWifi Verify Yapılmamış</div><div class="wblock-sub">${isOwnProfile?"(Yaptıysanız sayfayı yenileyin)":""}</div>${isOwnProfile?`<a href="https://dashboard.rowifi.xyz" target="_blank" class="wact-btn wact-rowifi"><img src="/pngs/rowifi.png" alt=""/>RoWifi Verify Yapın</a>`:""}</div>`;
+  } else {
+    const adminRefreshBtn=viewerIsTeam&&!isOwnProfile?`<button class="rw-refresh" id="rfbtn" onclick="adminRefresh('${u.id}')"><img src="/pngs/rowifi.png" alt=""/>Bilgileri Güncelle</button>`:"";
+    const ownRefreshBtn=isOwnProfile?`<button class="rw-refresh" id="rfbtn" onclick="refreshRowifi()"><img src="/pngs/rowifi.png" alt=""/>Bilgileri Güncelle</button>`:"";
+    rightContent=`<div class="rwblock"><div class="rwav-row"><img class="rwav" src="${rbxSrc}" alt="" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'"/><div><div class="rwname">${u.roblox_username}</div><div class="rwsub">ID: ${u.roblox_id}</div></div></div>${ownRefreshBtn||adminRefreshBtn}<div class="rmsg" id="rmsg"></div></div>`;
+  }
+  document.getElementById("pwrap").innerHTML=`
+    <div class="pleft">
+      <div class="ptop"><span class="pmeta-label">Üye Profili</span>
+        ${isOwnProfile?`<button class="logout-btn" onclick="openConf()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Çıkış</button>`:""}
+      </div>
+      <div class="pav-row"><img class="pav" src="${discAv}" alt=""/><div><div class="pname">${dname}</div><div class="phandle">@${u.username}</div></div></div>
+      <div class="prole-badge">${teamRole}</div>
+      <div class="pib"><div class="pib-label">Topluluk Durumu</div><div class="pib-val" style="font-size:.82rem;color:rgba(255,255,255,.6)">${memberLabel}</div></div>
+      <div class="pib"><div class="pib-label">Discord Oluşturma Tarihi</div><div class="pib-val">${discordCreatedAt(u.id)}</div></div>
+      ${hasRw?`<div class="pib"><div class="pib-label">Roblox Kullanıcı Adı</div><div class="pib-val">${u.roblox_username}</div></div>`:""}
+    </div>
+    <div class="pright">
+      <div class="pright-hdr">${rightTitle}</div>
+      ${rightContent}
+    </div>`;
+
+  // Cooldown'u sunucudan al ve varsa buton başlat
+  if(isOwnProfile){
+    try{
+      const cd=await(await fetch("/api/cooldown")).json();
+      if(cd.rowifi>0){
+        const btn=document.getElementById("rfbtn");
+        if(btn){
+          const BTN_DEFAULT=`<img src="/pngs/rowifi.png" alt=""/>Bilgileri Güncelle`;
+          const end=Date.now()+cd.rowifi*1000;
+          const tick=()=>{const left=Math.ceil((end-Date.now())/1000);if(left<=0){btn.disabled=false;btn.innerHTML=BTN_DEFAULT;return;}btn.textContent=`Bekleyin (${left}s)`;btn.disabled=true;setTimeout(tick,1000);};tick();
+        }
+      }
+    }catch(e){}
+  }
+}
+async function adminRefresh(targetId){
+  const btn=document.getElementById("rfbtn");
+  btn.disabled=true;btn.textContent="Güncelleniyor...";
+  try{
+    const res=await fetch(`/api/admin-refresh-profile/${targetId}`,{method:"POST"});
+    const d=await res.json();
+    if(d.ok){showRefMsg("ok","Güncellendi!");setTimeout(()=>location.reload(),700);}
+    else showRefMsg("no",d.error||"Hata.");
+  }catch(e){showRefMsg("no","Bağlanılamadı.");}
+  btn.disabled=false;btn.innerHTML=`<img src="/pngs/rowifi.png" alt=""/>Bilgileri Güncelle`;
+}
+(async()=>{
+  const loMsgTimer=setTimeout(()=>document.getElementById("lo-msg").classList.add("show"),5000);
+  const cfgRes=await(await fetch("/api/config")).json();
+  const sn=cfgRes.siteName||"Pixlands";
+  SITE_NAME=sn;
+  INVITE=cfgRes.guildInvite||"/";
+  document.getElementById("nav-name").textContent=sn;
+  document.getElementById("fname").textContent=sn;
+  document.getElementById("fcopy").textContent=`© 2026 ${sn} — Tüm hakları saklıdır.`;
+  const fd=document.getElementById("footer-discord");if(fd)fd.href=INVITE;
+  document.title=sn;
+
+  // /profile?=DISCORDID desteği
+  const targetId=new URLSearchParams(location.search).get("");
+  const lo=document.getElementById("lo");
+
+  const meRes=await(await fetch("/auth/me")).json();
+  const isLoggedIn=meRes.loggedIn&&!!meRes.user;
+  const viewerIsTeam=isLoggedIn&&[].concat(await(async()=>{try{const td=await(await fetch("/api/team")).json();return(td.members||[]).map(m=>m.id);}catch(e){return[];}})()).includes(meRes.user?.id);
+
+  if(targetId&&targetId!==meRes.user?.id){
+    // Başkasının profili — navbar: Dashboard ve Profil linkleri gizle, sağda kendi pill
+    document.getElementById("nl-dash").style.display="none";
+    document.getElementById("nl-profile").style.display="none";
+    document.getElementById("ml-dash").style.display="none";
+    document.getElementById("ml-profile").style.display="none";
+    clearTimeout(loMsgTimer);
+    if(isLoggedIn){
+      const avSrc=av(meRes.user.id,meRes.user.avatar);
+      document.getElementById("nav-av").src=avSrc;
+      document.getElementById("nav-un").textContent=meRes.user.username;
+      document.getElementById("mob-av").src=avSrc;
+    } else {
+      document.getElementById("nright").style.display="none";
+      document.getElementById("nham-area").style.display="none";
+    }
+    try{
+      const pd=await(await fetch(`/api/profile/${targetId}`)).json();
+      if(pd.error){
+        document.getElementById("pwrap").innerHTML=`<div style="padding:40px;text-align:center;color:rgba(255,255,255,.4);font-size:.95rem">${pd.error}</div>`;
+        setTimeout(()=>lo.classList.add("out"),2000);return;
+      }
+      const tRole=pd.teamRole||"Topluluk Üyesi";
+      await render(pd,tRole,false,viewerIsTeam);
+      setTimeout(()=>lo.classList.add("out"),2000);
+    }catch(e){
+      document.getElementById("pwrap").innerHTML=`<div style="padding:40px;text-align:center;color:rgba(255,255,255,.4)">Profil yüklenemedi.</div>`;
+      setTimeout(()=>lo.classList.add("out"),2000);
+    }
+    return;
+  }
+
+  // Kendi profili
+  let sync;
+  try{sync=await(await fetch("/auth/sync",{method:"POST"})).json();}catch(e){sync={ok:false};}
+  clearTimeout(loMsgTimer);
+  if(!sync.ok){window.location.href="/";return;}
+  const u=sync.user;
+  const avSrc=av(u.id,u.avatar);
+  document.getElementById("nav-av").src=avSrc;
+  document.getElementById("nav-un").textContent=u.username;
+  document.getElementById("mob-av").src=avSrc;
+  const hasWarn=!u.in_guild||!u.roblox_username;
+  if(hasWarn){
+    const dw=document.createElement("span");dw.className="warn-dot";document.getElementById("nav-pill-wrap").appendChild(dw);
+    const dm=document.createElement("span");dm.className="warn-dot-mob";document.getElementById("mob-pill-icon-wrap").appendChild(dm);
+  }
+  let teamRole="Topluluk Üyesi";
+  try{const td=await(await fetch("/api/team")).json();if(td.members){const me=td.members.find(m=>m.id===u.id);if(me)teamRole=me.tur;}}catch(e){}
+  await render(u,teamRole,true,false);
+  setTimeout(()=>lo.classList.add("out"),2000);
+  history.replaceState({},"",`/profile?=${u.id}`);
+
+})();
+</script>
+</body>
+</html>

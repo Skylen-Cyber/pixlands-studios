@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Pixlands</title>
+  <link rel="icon" type="image/png" href="/pngs/pixlands.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}html{scroll-behavior:smooth;}
+    :root{--blue:#2563eb;--blue-dark:#1d4ed8;--blue-light:#3b82f6;--accent:#60a5fa;}
+    body{background:#0a0f1e;color:#fff;font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+    /* ═══ LOADING ═══ */
+    #lo{position:fixed;inset:0;z-index:8000;background:#0a0f1e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s;}
+    #lo.out{opacity:0;pointer-events:none;}
+    .spin{width:34px;height:34px;border:3px solid rgba(96,165,250,.2);border-top:3px solid #60a5fa;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    #lo-msg{font-size:.82rem;color:rgba(255,255,255,.35);font-weight:500;opacity:0;transition:opacity .5s;text-align:center;padding:0 20px;}
+    #lo-msg.show{opacity:1;}
+
+    
+
+    /* ═══ WELCOME ═══ */
+    #wo{display:none;position:fixed;inset:0;z-index:9000;background:#0a0f1e;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+    #wo.on{display:flex;}
+    .wt{font-size:clamp(1.4rem,6vw,2.4rem);font-weight:900;color:#fff;opacity:0;transform:translateY(16px);transition:opacity .48s,transform .48s;text-align:center;padding:0 20px;}
+    .ws{font-size:clamp(.78rem,3vw,.97rem);color:rgba(255,255,255,.4);opacity:0;transition:opacity .48s .22s;}
+    #wo.go .wt{opacity:1;transform:translateY(0);}#wo.go .ws{opacity:1;}
+
+    /* ═══ ANIMATED BACKGROUND ═══ */
+    .bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+    .bg-blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.55;animation:blobmove 12s ease-in-out infinite alternate;}
+    .bg-blob-1{width:600px;height:600px;background:radial-gradient(circle,#1e40af,transparent 70%);top:-10%;left:-10%;animation-delay:0s;}
+    .bg-blob-2{width:500px;height:500px;background:radial-gradient(circle,#1d4ed8,transparent 70%);bottom:-15%;right:-10%;animation-delay:-4s;}
+    .bg-blob-3{width:400px;height:400px;background:radial-gradient(circle,#3b82f6 0%,transparent 70%);top:40%;left:50%;transform:translateX(-50%);animation-delay:-8s;}
+    @keyframes blobmove{0%{transform:scale(1) translate(0,0);}50%{transform:scale(1.15) translate(20px,-20px);}100%{transform:scale(1) translate(-10px,10px);}}
+    .bg-grid{position:fixed;inset:0;z-index:0;opacity:.04;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+
+    /* ═══ NAVBAR — Pella style: centered floating pill ═══ */
+    #nb-wrap{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;justify-content:center;padding:14px 20px 0;pointer-events:none;}
+    #nb{pointer-events:all;display:flex;align-items:center;justify-content:space-between;padding:0 18px 0 14px;height:52px;background:rgba(10,15,30,.28);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:1px solid rgba(255,255,255,.12);border-radius:16px;width:100%;max-width:860px;gap:8px;box-shadow:0 4px 32px rgba(0,0,0,.2);}
+    .nbrand{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;}
+    .nbrand img{width:28px;height:28px;object-fit:contain;border-radius:7px;}
+    .nbrand-name{font-size:.98rem;font-weight:800;color:#fff;letter-spacing:-.2px;}
+    .nlinks{display:flex;align-items:center;gap:1px;}
+    .nlink{color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;text-decoration:none;padding:5px 11px;border-radius:7px;transition:color .15s,background .15s;white-space:nowrap;}
+    .nlink:hover{color:#fff;background:rgba(255,255,255,.08);}
+    .nright{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+    .nbtn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:8px;padding:6px 14px;font-size:.82rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;transition:background .15s;text-decoration:none;white-space:nowrap;}
+    .nbtn-blue{background:#2563eb;color:#fff;}.nbtn-blue:hover{background:#1d4ed8;}
+    .nbtn-dash{background:#2563eb;color:#fff;}.nbtn-dash:hover{background:#1d4ed8;}
+    .npill{display:flex;align-items:center;gap:6px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:2px 11px 2px 2px;transition:background .15s;background:rgba(255,255,255,.05);}
+    .npill:hover{background:rgba(255,255,255,.12);}
+    .npill img{width:24px;height:24px;border-radius:50%;object-fit:cover;}
+    .npill span{font-size:.8rem;font-weight:600;color:#fff;}
+    .npill-icon img{width:30px;height:30px;border-radius:50%;object-fit:cover;}
+    .npill-wrap{position:relative;display:inline-flex;}
+    .warn-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;}
+    .npill-icon-wrap{position:relative;display:inline-flex;}
+    .warn-dot-mob{position:absolute;bottom:0;right:0;width:9px;height:9px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;}
+    /* HAMBURGER */
+    .nham-area{display:none;align-items:center;gap:8px;}
+    .nham{display:flex;flex-direction:column;gap:5px;cursor:pointer;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:7px;width:36px;height:36px;align-items:center;justify-content:center;padding:0;flex-shrink:0;}
+    .nham span{display:block;width:16px;height:2px;background:#fff;border-radius:2px;transition:transform .22s,opacity .22s;}
+    .nham.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+    .nham.open span:nth-child(2){opacity:0;}
+    .nham.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+    /* MOBILE DRAWER */
+    #mob{display:none;position:fixed;top:66px;left:0;right:0;z-index:190;background:rgba(10,15,30,.28);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border-bottom:1px solid rgba(255,255,255,.12);padding:12px 18px 20px;flex-direction:column;gap:2px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+    #mob.open{display:flex;}
+    .mlink{display:block;color:rgba(255,255,255,.6);font-size:.93rem;font-weight:500;padding:10px 12px;border-radius:7px;text-decoration:none;transition:background .13s,color .13s;}
+    .mlink:hover{background:rgba(255,255,255,.08);color:#fff;}
+    .mdiv{height:1px;background:rgba(255,255,255,.07);margin:8px 0;}
+    .mbtn{display:flex;align-items:center;gap:7px;border:none;border-radius:8px;padding:11px 16px;font-size:.92rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:4px;text-decoration:none;justify-content:center;}
+    .mbtn-blue{background:#2563eb;color:#fff;}
+    .mbtn-ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;}
+    @media(max-width:700px){#nb-wrap{padding:10px 10px 0;}#nb{padding:0 12px 0 10px;border-radius:12px;max-width:100%;}.nlinks,.nright{display:none;}.nham-area{display:flex;}}
+
+    /* ═══ SCROLL ANIM ═══ */
+    .an{opacity:0;transform:translateY(20px);transition:opacity .52s ease,transform .52s ease;}
+    .an.in{opacity:1;transform:none;}
+    .d1{transition-delay:.07s;}.d2{transition-delay:.14s;}.d3{transition-delay:.21s;}
+
+    /* ═══ HERO ═══ */
+    .hero{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;padding:100px 40px 40px;max-width:1200px;margin:0 auto;gap:60px;}
+    .hero-left{flex:1;max-width:540px;}
+    .hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.25);border-radius:50px;padding:5px 14px;font-size:.78rem;font-weight:600;color:#93c5fd;margin-bottom:24px;}
+    .hero-badge img{width:15px;height:15px;object-fit:contain;}
+    .hero-title{font-size:clamp(2.1rem,4.8vw,3.6rem);font-weight:900;line-height:1.07;margin-bottom:6px;letter-spacing:-1.5px;color:#fff;}
+    .cursor{display:inline-block;width:3px;height:.85em;background:#fff;margin-left:1px;vertical-align:middle;animation:blink .8s step-end infinite;}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+    .hero-sub{color:rgba(255,255,255,.55);font-size:1rem;line-height:1.75;margin-bottom:34px;max-width:460px;}
+    .hero-btns{display:flex;gap:10px;flex-wrap:wrap;}
+    .hbtn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:10px;padding:13px 26px;font-size:.95rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;transition:background .15s,transform .1s,box-shadow .15s;text-decoration:none;}
+    .hbtn:hover{transform:translateY(-2px);}
+    .hbtn-blue{background:#2563eb;color:#fff;box-shadow:0 4px 24px rgba(37,99,235,.35);}.hbtn-blue:hover{background:#1d4ed8;box-shadow:0 6px 32px rgba(37,99,235,.5);}
+    .hbtn-out{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:#fff;}.hbtn-out:hover{background:rgba(255,255,255,.13);}
+    /* HERO VISUAL */
+    .hero-right{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-content:center;max-width:480px;opacity:0;transform:translateY(20px);transition:opacity .6s ease .35s,transform .6s ease .35s;}
+    .hero-right.in{opacity:1;transform:none;}
+    .hero-right img{width:100%;max-width:420px;object-fit:contain;filter:drop-shadow(0 20px 60px rgba(37,99,235,.4)) drop-shadow(0 0 80px rgba(96,165,250,.2));}
+    .hero-right.floating img{animation:fl 4s ease-in-out infinite;}
+    @keyframes fl{0%,100%{transform:translateY(0);}50%{transform:translateY(-18px);}}
+
+    /* ═══ SECTION ═══ */
+    .sec-wrap{position:relative;z-index:1;}
+    .div{height:1px;background:rgba(255,255,255,.06);max-width:1200px;margin:0 auto;position:relative;z-index:1;}
+    .sec{padding:80px 40px;max-width:1200px;margin:0 auto;}
+    .sec-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:38px;flex-wrap:wrap;}
+    .sec-label{font-size:.72rem;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:7px;}
+    .sec-title{font-size:clamp(1.45rem,2.6vw,2.1rem);font-weight:800;letter-spacing:-.5px;color:#fff;}
+    .sec-right{font-size:.88rem;color:rgba(255,255,255,.32);max-width:240px;text-align:right;line-height:1.6;}
+
+    /* ABOUT CARDS */
+    .agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;}
+    .acard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:22px;transition:box-shadow .18s,transform .18s,background .18s;}
+    .acard:hover{background:rgba(255,255,255,.07);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+    .acard-icon{width:32px;height:32px;object-fit:contain;margin-bottom:12px;}
+    .acard-title{font-size:.92rem;font-weight:700;margin-bottom:5px;color:#fff;}
+    .acard-desc{font-size:.83rem;color:rgba(255,255,255,.45);line-height:1.6;}
+
+    /* TEAM */
+    .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:13px;}
+    .tcard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px 16px;position:relative;transition:box-shadow .1s,transform .1s,border-color .1s;will-change:transform;}
+    .tcard:hover{transform:translateY(-3px);box-shadow:0 6px 24px rgba(0,0,0,.3);border-color:rgba(96,165,250,.2);background:rgba(255,255,255,.07);}
+    .trole{position:absolute;top:14px;right:14px;background:rgba(96,165,250,.12);color:#93c5fd;border-radius:5px;padding:2px 9px;font-size:.73rem;font-weight:700;}
+    .trow{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+    .tav{width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;}
+    .tname{font-size:.95rem;font-weight:700;color:#fff;line-height:1.2;}
+    .thandle{font-size:.78rem;color:rgba(255,255,255,.38);margin-top:1px;}
+    .tdesc{font-size:.8rem;color:rgba(255,255,255,.42);margin-top:10px;line-height:1.55;}
+
+    /* STATS */
+    .sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:13px;}
+    .scard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:22px 16px;text-align:center;transition:box-shadow .18s,transform .18s,background .18s;}
+    .scard:hover{background:rgba(255,255,255,.07);transform:translateY(-2px);}
+    .sval{font-size:2rem;font-weight:900;color:#60a5fa;}
+    .sicon{width:38px;height:38px;object-fit:contain;margin:0 auto 6px;}
+    .slabel{font-size:.78rem;color:rgba(255,255,255,.4);margin-top:4px;}
+
+    /* FOOTER */
+    footer{position:relative;z-index:1;background:rgba(0,0,0,.3);border-top:1px solid rgba(255,255,255,.06);padding:20px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .fbrand{display:flex;align-items:center;gap:7px;flex:1;}
+    .fbrand img{width:24px;height:24px;border-radius:6px;object-fit:contain;}
+    .fbrand span{font-size:.88rem;font-weight:800;color:#fff;}
+    .fcopy{font-size:.78rem;color:rgba(255,255,255,.28);flex:1;text-align:center;}
+    .footer-links{display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;}
+    .footer-link{font-size:.73rem;font-weight:600;color:rgba(255,255,255,.5);text-decoration:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:4px 10px;transition:background .15s,color .15s;}
+    .footer-link:hover{background:rgba(255,255,255,.1);color:#fff;}
+    .footer-discord{display:inline-flex;align-items:center;gap:5px;background:rgba(88,101,242,.15);border:1px solid rgba(88,101,242,.3);border-radius:7px;padding:4px 10px;font-size:.73rem;font-weight:600;color:#818cf8;text-decoration:none;transition:background .15s;}
+    .footer-discord:hover{background:rgba(88,101,242,.25);}
+    @media(max-width:900px){.hero{flex-direction:column;padding:80px 20px 40px;gap:0;}.hero-left{max-width:100%;}.hero-right{max-width:280px;margin-top:36px;}.sec{padding:56px 20px;}.sec-right{text-align:left;}footer{flex-direction:column;align-items:center;padding:16px 20px;gap:10px;}.fbrand{flex:none;justify-content:center;}.fcopy{flex:none;text-align:center;}.footer-links{flex:none;justify-content:center;flex-wrap:wrap;}}
+    @media(max-width:480px){.hero-btns{flex-direction:column;}.hbtn{justify-content:center;}}
+  </style>
+</head>
+<body>
+<!-- Animated BG -->
+<div class="bg-canvas"><div class="bg-blob bg-blob-1"></div><div class="bg-blob bg-blob-2"></div><div class="bg-blob bg-blob-3"></div></div>
+<div class="bg-grid"></div>
+
+<div id="lo"><div class="spin"></div><div id="lo-msg">Bu işlem biraz uzun sürebilir...</div></div>
+<div id="wo"><div class="wt" id="wt">Hoş geldin!</div><div class="ws">Yönlendiriliyorsun...</div></div>
+
+<!-- NAVBAR -->
+<div id="nb-wrap"><nav id="nb">
+  <a href="/" class="nbrand"><img src="/pngs/pixlands.png" alt=""/><span class="nbrand-name" id="nav-name">Pixlands</span></a>
+  <div class="nlinks">
+    <a href="#about" class="nlink">Hakkımızda</a>
+    <a href="#team" class="nlink">Ekip</a>
+    <a href="#stats" class="nlink">İstatistikler</a>
+  </div>
+  <div class="nright" id="nright"></div>
+  <div class="nham-area" id="nham-area">
+    <div id="mob-pill"></div>
+    <button class="nham" id="nham" onclick="toggleMob()"><span></span><span></span><span></span></button>
+  </div>
+</nav></div>
+<div id="mob">
+  <a href="#about" class="mlink" onclick="closeMob()">Hakkımızda</a>
+  <a href="#team" class="mlink" onclick="closeMob()">Ekip</a>
+  <a href="#stats" class="mlink" onclick="closeMob()">İstatistikler</a>
+  <div class="mdiv"></div>
+  <div id="mob-act"></div>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-left">
+    <div class="hero-badge an"><img src="/pngs/roblox.png" alt=""/><span>Roblox Kamp Yönetimi</span></div>
+    <h1 class="hero-title an d1">
+      <span id="typing-chars"></span><span class="cursor"></span>
+    </h1>
+    <h1 class="hero-title an d1" style="color:#60a5fa;margin-top:0">kolayca yönetin.</h1>
+    <p class="hero-sub an d2">Discord ile giriş yapın, RoWifi doğrulamasıyla kimliğinizi kanıtlayın ve kampınızı güvenle yönetin.</p>
+    <div class="hero-btns an d3" id="hbtns"></div>
+  </div>
+  <div class="hero-right" id="hright"><img src="/pngs/hero.png" alt="" onerror="this.style.display='none'"/></div>
+</section>
+
+<div class="sec-wrap">
+<div class="div"></div>
+<section class="sec" id="about">
+  <div class="sec-hdr an"><div><div class="sec-label">Hakkımızda</div><div class="sec-title" id="about-t">Neden Pixlands?</div></div><div class="sec-right">Discord OAuth2, RoWifi ve güçlü yetki kontrolüyle güvenli platform.</div></div>
+  <div class="agrid">
+    <div class="acard an d1"><div class="acard-title">Güvenli Kimlik Doğrulama</div><div class="acard-desc">Discord OAuth2 ve RoWifi entegrasyonu ile yalnızca doğrulanmış kullanıcılar işlem yapabilir.</div></div>
+    <div class="acard an d2"><div class="acard-title">Anlık İşlemler</div><div class="acard-desc">Rütbe yönetimi ve oyun yönetimi işlemlerini saniyeler içinde gerçekleştirin.</div></div>
+    <div class="acard an d3"><div class="acard-title">Yetki Kontrolü</div><div class="acard-desc">Kendi rütbenizin üzerindeki kişilere işlem yapamazsınız. Bot sınırları otomatik korunur.</div></div>
+  </div>
+</section>
+
+<div class="div"></div>
+<section class="sec" id="team">
+  <div class="sec-hdr an"><div><div class="sec-label">Ekip</div><div class="sec-title">Ekiple Tanış</div></div><div class="sec-right">Sistemi kuran, geliştiren ve yöneten ekibimiz.</div></div>
+  <div class="tgrid" id="tgrid"><div style="color:rgba(255,255,255,.3);font-size:.9rem;padding:8px 0">Yükleniyor...</div></div>
+</section>
+
+<div class="div"></div>
+<section class="sec" id="stats">
+  <div class="sec-hdr an"><div><div class="sec-label">İstatistikler</div><div class="sec-title">Platform Verileri</div></div></div>
+  <div class="sgrid">
+    <div class="scard an d1"><div class="sval" id="sg">—</div><div class="slabel">Bağlı Grup</div></div>
+    <div class="scard an d2"><div class="sval" id="sm">—</div><div class="slabel">Katılan Üye</div></div>
+    <div class="scard an d3"><div class="sval" id="sgm">—</div><div class="slabel">Bağlı Oyun</div></div>
+  </div>
+</section>
+</div>
+
+<footer>
+  <div class="fbrand"><img src="/pngs/pixlands.png" alt=""/><span id="fname">Pixlands</span></div>
+  <div class="fcopy" id="fcopy">© 2026 Pixlands — Tüm hakları saklıdır.</div>
+  <div class="footer-links">
+    <a href="/terms" class="footer-link">Hizmet Şartları</a>
+    <a href="/privacy" class="footer-link">Gizlilik Politikası</a>
+    <a href="" id="footer-discord" class="footer-discord" target="_blank">
+      <img src="/pngs/discord.png" style="width:13px;height:13px;object-fit:contain" alt=""/>
+      <span>Discord</span>
+    </a>
+  </div>
+</footer>
+
+<script>
+let INVITE="/",SITE="Pixlands";
+const justIn=new URLSearchParams(location.search).get("loggedin")==="1";
+let obs;
+
+function av(id,h){return h?`https://cdn.discordapp.com/avatars/${id}/${h}.png?size=64`:`https://cdn.discordapp.com/embed/avatars/0.png`;}
+function toggleMob(){const m=document.getElementById("mob"),h=document.getElementById("nham");const o=m.classList.contains("open");m.classList.toggle("open",!o);h.classList.toggle("open",!o);}
+function closeMob(){document.getElementById("mob").classList.remove("open");document.getElementById("nham")?.classList.remove("open");}
+
+/* ── TYPING ANIMATION ── */
+// "Rütbeleri" / "Oyununuzu" yazılıp silinir, "kolayca yönetin." altta sabit mavi
+const PHRASES=["Rütbeleri","Oyununuzu"];
+let phraseIdx=0,charIdx=0,deleting=false,typingTimer=null;
+const CHAR_DELAY=90,DELETE_DELAY=50,PAUSE_AFTER=5000,PAUSE_BEFORE=300;
+
+function typeStep(){
+  const el=document.getElementById("typing-chars");
+  const phrase=PHRASES[phraseIdx];
+  if(!deleting){
+    el.textContent=phrase.slice(0,charIdx+1);
+    charIdx++;
+    if(charIdx===phrase.length){typingTimer=setTimeout(startDelete,PAUSE_AFTER);return;}
+  } else {
+    el.textContent=phrase.slice(0,charIdx-1);
+    charIdx--;
+    if(charIdx===0){
+      deleting=false;
+      phraseIdx=(phraseIdx+1)%PHRASES.length;
+      typingTimer=setTimeout(typeStep,PAUSE_BEFORE);return;
+    }
+  }
+  typingTimer=setTimeout(typeStep,deleting?DELETE_DELAY:CHAR_DELAY);
+}
+function startDelete(){deleting=true;typeStep();}
+function startTyping(){charIdx=0;deleting=false;typeStep();}
+
+function initObs(){
+  obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");obs.unobserve(e.target);}});},{threshold:.1});
+  document.querySelectorAll(".an").forEach(el=>obs.observe(el));
+}
+
+function renderNav(loggedIn,u,inGuild,hasWarn){
+  const nr=document.getElementById("nright"),hb=document.getElementById("hbtns");
+  const ma=document.getElementById("mob-act"),mp=document.getElementById("mob-pill");
+  if(!loggedIn){
+    // Navbar sağda Giriş Yap butonu
+    nr.innerHTML=`<a href="/auth/discord" class="nbtn nbtn-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>Giriş Yap</a>`;
+    // Hero'da buton YOK (giriş yapılmamışsa hero butonsuz)
+    hb.innerHTML="";
+    // Mobil drawer
+    ma.innerHTML=`<a href="/auth/discord" class="mbtn mbtn-blue" onclick="closeMob()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>Giriş Yap</a>`;
+    mp.innerHTML="";return;
+  }
+  const dot=hasWarn?`<span class="warn-dot"></span>`:"";
+  const dotMob=hasWarn?`<span class="warn-dot-mob"></span>`:"";
+  const pill=`<div class="npill-wrap"><a href="/profile" class="npill"><img src="${av(u.id,u.avatar)}" alt=""/><span>${u.username}</span></a>${dot}</div>`;
+  const iconPill=`<div class="npill-icon-wrap"><a href="/profile" class="npill-icon"><img src="${av(u.id,u.avatar)}" style="width:30px;height:30px;border-radius:50%" alt=""/></a>${dotMob}</div>`;
+  let ab,mb,ha;
+  if(inGuild){
+    ab=`<a href="/dashboard" class="nbtn nbtn-blue">Dashboard</a>`;
+    mb=`<a href="/dashboard" class="mbtn mbtn-blue" onclick="closeMob()">Dashboard</a>`;
+    ha=`<a href="/dashboard" class="hbtn hbtn-blue">Dashboard'ı Aç</a>`;
+  } else {
+    ab=`<a href="${INVITE}" target="_blank" class="nbtn nbtn-blue">Discord'a Katıl</a>`;
+    mb=`<a href="${INVITE}" target="_blank" class="mbtn mbtn-blue" onclick="closeMob()">Discord'a Katıl</a>`;
+    ha=`<a href="${INVITE}" target="_blank" class="hbtn hbtn-blue">Discord'a Katıl</a>`;
+  }
+  nr.innerHTML=`${ab}${pill}`;
+  hb.innerHTML=`${ha}<a href="/profile" class="hbtn hbtn-out">Profilim</a>`;
+  ma.innerHTML=mb;mp.innerHTML=iconPill;
+}
+
+async function loadTeam(){
+  try{
+    const d=await(await fetch("/api/team")).json();
+    const g=document.getElementById("tgrid");
+    if(!d.members?.length){g.innerHTML='<div style="color:rgba(255,255,255,.3)">Ekip üyesi bulunamadı.</div>';return;}
+    g.innerHTML=d.members.map((m,i)=>`
+      <div class="tcard an" style="transition-delay:${i*0.07}s;cursor:pointer;" onclick="window.open('https://discord.com/users/${m.id}','_blank')">
+        <span class="trole">${m.tur}</span>
+        <div class="trow"><img class="tav" src="${m.avatar}" alt="" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'"/><div><div class="tname">${m.displayName||m.username}</div><div class="thandle">@${m.username}</div></div></div>
+        ${m.description?`<div class="tdesc">${m.description}</div>`:""}
+        <div style="display:flex;gap:7px;margin-top:10px;" onclick="event.stopPropagation()">
+          <a href="/profile?=${m.id}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.5);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:4px 10px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.1)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,.05)';this.style.color='rgba(255,255,255,.5)'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profil</a>
+          <a href="https://discord.com/users/${m.id}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:#818cf8;background:rgba(88,101,242,.12);border:1px solid rgba(88,101,242,.25);border-radius:7px;padding:4px 10px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(88,101,242,.22)'" onmouseout="this.style.background='rgba(88,101,242,.12)'"><img src="/pngs/discord.png" style="width:12px;height:12px;object-fit:contain;opacity:.85" alt=""/>Discord</a>
+        </div>
+      </div>`).join("");
+    document.querySelectorAll(".tcard.an:not(.in)").forEach(el=>obs?.observe(el));
+  }catch(e){document.getElementById("tgrid").innerHTML='<div style="color:rgba(255,255,255,.3)">Ekip yüklenemedi.</div>';}
+}
+
+(async()=>{
+  const loMsgTimer=setTimeout(()=>document.getElementById("lo-msg").classList.add("show"),5000);
+  const cfg=await(await fetch("/api/config")).json();
+  SITE=cfg.siteName||"Pixlands";INVITE=cfg.guildInvite||"/";
+  document.getElementById("nav-name").textContent=SITE;
+  document.getElementById("fname").textContent=SITE;
+  document.getElementById("fcopy").textContent=`© 2026 ${SITE} — Tüm hakları saklıdır.`;
+  document.getElementById("footer-discord").href=INVITE;
+  document.getElementById("about-t").textContent=`Neden ${SITE}?`;
+  document.title=SITE;
+
+  let me;
+  try{me=await(await fetch("/auth/me")).json();}catch(e){me={loggedIn:false};}
+  const lo=document.getElementById("lo");
+  clearTimeout(loMsgTimer);
+  const hideLo=()=>setTimeout(()=>lo.classList.add("out"),2000);
+
+  if(justIn&&me.loggedIn){
+    const w=!me.user.in_guild||!me.user.roblox_id;
+    renderNav(true,me.user,me.user.in_guild,w);
+    hideLo();
+    const wo=document.getElementById("wo");
+    document.getElementById("wt").textContent=`Hoş geldin, ${me.user.username}!`;
+    wo.classList.add("on");
+    requestAnimationFrame(()=>setTimeout(()=>wo.classList.add("go"),50));
+    setTimeout(()=>window.location.href="/profile",1600);
+    fetch("/auth/sync",{method:"POST"});
+  } else {
+    if(me.loggedIn){
+      renderNav(true,me.user,me.user.in_guild,!me.user.in_guild||!me.user.roblox_id);
+      fetch("/auth/sync",{method:"POST"}).then(r=>r.json()).then(s=>{if(s.ok&&(s.user.in_guild!==me.user.in_guild||!!s.user.roblox_id!==!!me.user.roblox_id))renderNav(true,s.user,s.user.in_guild,!s.user.in_guild||!s.user.roblox_id);});
+    } else renderNav(false,null,false,false);
+    hideLo();
+  }
+
+  initObs();
+  setTimeout(()=>{const hr=document.getElementById("hright");hr.classList.add("in");setTimeout(()=>hr.classList.add("floating"),680);},300);
+  startTyping();
+  loadTeam();
+
+  // İstatistikler
+  try{
+    const st=await(await fetch("/api/stats")).json();
+    document.getElementById("sg").textContent=st.groupCount??"—";
+    document.getElementById("sm").textContent=st.memberCount??"—";
+    document.getElementById("sgm").textContent=st.gameCount??"—";
+  }catch(e){
+    try{const gr=await(await fetch("/api/groups")).json();if(gr.groups)document.getElementById("sg").textContent=gr.groups.length;}catch(e2){}
+  }
+})();
+</script>
+</body>
+</html>
