@@ -526,7 +526,7 @@ async function selectServer(serverId,placeId,srvNum){
   try{
     const d=await(await fetch("/api/game-players?placeId="+placeId+"&serverId="+serverId)).json();
     if(!d.players||!d.players.length){
-      pl.innerHTML='<div style="padding:14px;color:rgba(255,255,255,.35);font-size:.85rem">Oyuncu bilgisi alınamadı.</div>';
+      pl.innerHTML='<div style="padding:14px;color:rgba(255,255,255,.35);font-size:.85rem">Oyuncu verisi henüz gelmedi, 10 saniye içinde tekrar deneyin.</div>';
       return;
     }
     pl.innerHTML="";
@@ -538,8 +538,7 @@ async function selectServer(serverId,placeId,srvNum){
       const row=document.createElement("div");
       row.className="prow";
       row.dataset.uid=uid;
-      row.dataset.idx=String(i);
-      row.onclick=function(){selectPlayer(uid,name,handle,avUrl,String(i));};
+      row.onclick=function(){selectPlayer(uid,name,handle,avUrl);};
       if(avUrl){
         const img=document.createElement("img");
         img.className="pav";
@@ -580,10 +579,11 @@ async function selectServer(serverId,placeId,srvNum){
   }
 }
 
-function selectPlayer(uid,name,handle,avUrl,idx){
-  selPlayer={uid:uid,name:name,handle:handle,av:avUrl,idx:idx};
+function selectPlayer(uid,name,handle,avUrl){
+  selPlayer={uid:uid,name:name,handle:handle,av:avUrl};
   document.querySelectorAll(".prow").forEach(function(r){r.classList.remove("sel");});
-  document.querySelectorAll(".prow").forEach(function(r){if(r.dataset.idx===String(idx))r.classList.add("sel");});
+  var rows=document.querySelectorAll(".prow");
+  rows.forEach(function(r){if(r.dataset.uid===uid)r.classList.add("sel");});
   updateSelInfo();
 }
 
