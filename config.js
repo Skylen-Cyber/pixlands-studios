@@ -25,9 +25,10 @@ module.exports = {
   ],
 
   GAMES: [
-    { placeId: 117655204202868, name: "OpenCloud Test", openCloudApiKey: process.env.GAME1_API_KEY },
+    { placeId: 117655204202868, name: "OpenCloud Test", openCloudApiKey: process.env.GAME1_API_KEY, minAdminRank: 50 },
   ],
 
   SESSION_SECRET: process.env.SESSION_SECRET || "fallback-secret",
   OC_SECRET:      process.env.OC_SECRET,
+
 };
