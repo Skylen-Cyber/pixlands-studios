@@ -13,6 +13,7 @@ const cfg     = require("./config");
 const app = express();
 const IS_PROD = process.env.NODE_ENV === "production";
 
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
