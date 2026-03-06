@@ -455,10 +455,20 @@ app.get("/api/games", requireAuth, async (req, res) => {
 /* ── OYUN SERVER LİSTESİ ── */
 // playerCache: { serverId: { userIds: [], cachedAt: 0 } }
 const playerCache = {};
+// serverListCache: { placeId: { servers: [], cachedAt: 0 } }
+const serverListCache = {};
+const SERVER_CACHE_TTL = 30 * 1000; // 30 saniye
 
 app.get("/api/game-servers", requireAuth, async (req, res) => {
   const placeId = parseInt(req.query.placeId, 10);
   if (!placeId) return res.status(400).json({ error: "placeId gerekli." });
+
+  // Cache kontrolü
+  const cached = serverListCache[placeId];
+  if (cached && Date.now() - cached.cachedAt < SERVER_CACHE_TTL) {
+    return res.json({ servers: cached.servers });
+  }
+
   try {
     const srvRes = await axios.get(`https://games.roblox.com/v1/games/${placeId}/servers/Public?sortOrder=Desc&limit=100`, {
       headers: { Cookie: `.ROBLOSECURITY=${cfg.ROBLOX_COOKIE}` }
@@ -468,9 +478,12 @@ app.get("/api/game-servers", requireAuth, async (req, res) => {
       id: s.id, playerCount: s.playing, maxPlayers: s.maxPlayers,
       fps: Math.round(s.fps || 0), ping: Math.round(s.ping || 0)
     }));
+    serverListCache[placeId] = { servers, cachedAt: Date.now() };
     res.json({ servers });
   } catch(e) {
     console.error("[game-servers] HATA:", e.response?.status, e.message);
+    // 429 ise cache'de eskisi varsa onu dön
+    if (cached) return res.json({ servers: cached.servers });
     res.status(500).json({ error: "Sunucular alınamadı." });
   }
 });
