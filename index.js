@@ -447,7 +447,7 @@ app.get("/api/games", requireAuth, async (req, res) => {
       }
     } catch(e) {}
 
-    return { placeId: g.placeId, name: g.name, icon, active };
+    return { placeId: g.placeId, name: g.name, icon, active, minAdminRank: g.minAdminRank || 0 };
   }));
   res.json({ games: result });
 });
@@ -544,6 +544,232 @@ app.get("/api/game-players", requireAuth, async (req, res) => {
   } catch(e) {
     console.error("[game-players] HATA:", e.response?.status, e.message);
     res.status(500).json({ players: [], error: "Oyuncular alınamadı." });
+  }
+});
+
+/* ════════════════════════════════════════
+   OYUN YÖNETİMİ — Ban / Kick endpointleri
+════════════════════════════════════════ */
+
+// isTeam kontrolü için middleware
+function requireTeam(req, res, next) {
+  if (!req.session.user) return res.status(401).json({ error: "Oturum açmanız gerekiyor." });
+  const discordId = req.session.user.id;
+  if (!cfg.TEAM.some(m => m.discordId === String(discordId))) return res.status(403).json({ error: "Bu işlem için yetkiniz yok." });
+  next();
+}
+
+// Oyun bazlı rank kontrolü — kullanıcının o oyun için minAdminRank'ı karşılayıp karşılamadığını kontrol eder
+async function checkGameAccess(robloxId, placeId) {
+  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  if (!game) return { ok: false, reason: "Oyun bulunamadı." };
+  const minRank = game.minAdminRank || 0;
+  if (minRank === 0) return { ok: true };
+  // İlk grubu referans al (birden fazla grup varsa genişletilebilir)
+  const group = cfg.GROUPS[0];
+  if (!group) return { ok: true };
+  try {
+    const rank = await noblox.getRankInGroup(group.groupId, robloxId);
+    if (rank < minRank) return { ok: false, reason: `Bu oyun için minimum rank ${minRank} gerekiyor. Sizin rankınız: ${rank}.` };
+    return { ok: true };
+  } catch(e) { return { ok: false, reason: "Rank kontrolü başarısız." }; }
+}
+
+// Open Cloud üzerinden DataStore'a yaz (global ban)
+async function ocDataStoreSet(placeId, key, value) {
+  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  if (!game?.openCloudApiKey) throw new Error("Open Cloud API key bulunamadı.");
+  // universeId al
+  const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
+  const universeId = uRes.data?.universeId;
+  if (!universeId) throw new Error("universeId alınamadı.");
+  await axios.post(
+    `https://apis.roblox.com/datastores/v1/universes/${universeId}/standard-datastores/datastore/entries/entry?datastoreName=BanStore&entryKey=${encodeURIComponent(key)}`,
+    JSON.stringify(value),
+    { headers: { "x-api-key": game.openCloudApiKey, "Content-Type": "application/json" } }
+  );
+}
+
+async function ocDataStoreDelete(placeId, key) {
+  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  if (!game?.openCloudApiKey) throw new Error("Open Cloud API key bulunamadı.");
+  const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
+  const universeId = uRes.data?.universeId;
+  if (!universeId) throw new Error("universeId alınamadı.");
+  await axios.delete(
+    `https://apis.roblox.com/datastores/v1/universes/${universeId}/standard-datastores/datastore/entries/entry?datastoreName=BanStore&entryKey=${encodeURIComponent(key)}`,
+    { headers: { "x-api-key": game.openCloudApiKey } }
+  );
+}
+
+// Open Cloud üzerinden sadece belirli servere MessagingService mesajı gönder
+async function ocMessagingPublish(placeId, topic, data) {
+  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  if (!game?.openCloudApiKey) throw new Error("Open Cloud API key bulunamadı.");
+  const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
+  const universeId = uRes.data?.universeId;
+  if (!universeId) throw new Error("universeId alınamadı.");
+  await axios.post(
+    `https://apis.roblox.com/messaging-service/v1/universes/${universeId}/topics/${topic}`,
+    { message: JSON.stringify(data) },
+    { headers: { "x-api-key": game.openCloudApiKey, "Content-Type": "application/json" } }
+  );
+}
+
+// ── GLOBAL BAN ──
+app.post("/api/game-ban", requireAuth, requireTeam, async (req, res) => {
+  const { placeId, userId, reason } = req.body;
+  if (!placeId || !userId) return res.status(400).json({ error: "Eksik parametre." });
+  const sessionRobloxId = req.session.user.roblox_id;
+  if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  if (!access.ok) return res.status(403).json({ error: access.reason });
+  try {
+    const banReason = reason || "Pixlands yönetimi tarafından yasaklandınız.";
+    await ocDataStoreSet(parseInt(placeId), String(userId), banReason);
+    // Kick at (tüm serverler duyar — MessagingService broadcast)
+    await ocMessagingPublish(parseInt(placeId), "Kick", { userid: userId, reason: banReason });
+    console.log(`[global-ban] userId=${userId} placeId=${placeId} by=${req.session.user.id}`);
+    res.json({ ok: true });
+  } catch(e) {
+    console.error("[global-ban] HATA:", e.message);
+    res.status(500).json({ error: "Ban işlemi başarısız: " + e.message });
+  }
+});
+
+// ── GLOBAL BAN KALDIR ──
+app.post("/api/game-unban", requireAuth, requireTeam, async (req, res) => {
+  const { placeId, userId } = req.body;
+  if (!placeId || !userId) return res.status(400).json({ error: "Eksik parametre." });
+  const sessionRobloxId = req.session.user.roblox_id;
+  if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  if (!access.ok) return res.status(403).json({ error: access.reason });
+  try {
+    await ocDataStoreDelete(parseInt(placeId), String(userId));
+    console.log(`[global-unban] userId=${userId} placeId=${placeId} by=${req.session.user.id}`);
+    res.json({ ok: true });
+  } catch(e) {
+    console.error("[global-unban] HATA:", e.message);
+    res.status(500).json({ error: "Ban kaldırma başarısız: " + e.message });
+  }
+});
+
+// ── GLOBAL BAN LİSTESİ ──
+app.get("/api/game-bans", requireAuth, requireTeam, async (req, res) => {
+  const placeId = parseInt(req.query.placeId, 10);
+  if (!placeId) return res.status(400).json({ error: "placeId gerekli." });
+  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  if (!game?.openCloudApiKey) return res.status(400).json({ error: "Open Cloud API key bulunamadı." });
+  try {
+    const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
+    const universeId = uRes.data?.universeId;
+    if (!universeId) return res.status(500).json({ error: "universeId alınamadı." });
+    // DataStore listele
+    const listRes = await axios.get(
+      `https://apis.roblox.com/datastores/v1/universes/${universeId}/standard-datastores/datastore/entries?datastoreName=BanStore&limit=100`,
+      { headers: { "x-api-key": game.openCloudApiKey } }
+    );
+    const keys = (listRes.data?.keys || []).map(k => k.key);
+    if (!keys.length) return res.json({ bans: [] });
+    // Her key için reason çek
+    const entries = await Promise.all(keys.map(async key => {
+      try {
+        const r = await axios.get(
+          `https://apis.roblox.com/datastores/v1/universes/${universeId}/standard-datastores/datastore/entries/entry?datastoreName=BanStore&entryKey=${encodeURIComponent(key)}`,
+          { headers: { "x-api-key": game.openCloudApiKey } }
+        );
+        return { userId: key, reason: r.data };
+      } catch(e) { return { userId: key, reason: "?" }; }
+    }));
+    // userId → username
+    const userIds = keys.map(Number).filter(Boolean);
+    const nameMap = {};
+    if (userIds.length) {
+      try {
+        const nr = await axios.post("https://users.roblox.com/v1/users", { userIds, excludeBannedUsers: false });
+        (nr.data?.data || []).forEach(u => { nameMap[u.id] = u.name; });
+      } catch(e) {}
+    }
+    const bans = entries.map(e => ({
+      userId: e.userId,
+      username: nameMap[parseInt(e.userId)] || e.userId,
+      reason: e.reason
+    }));
+    res.json({ bans });
+  } catch(e) {
+    console.error("[game-bans] HATA:", e.response?.status, e.message);
+    res.status(500).json({ error: "Ban listesi alınamadı: " + e.message });
+  }
+});
+
+// serverBanCache: { placeId: { serverId: { userId: reason } } }
+const serverBanCache = {};
+
+// ── SERVER BAN ──
+app.post("/api/game-server-ban", requireAuth, requireTeam, async (req, res) => {
+  const { placeId, serverId, userId, reason } = req.body;
+  if (!placeId || !serverId || !userId) return res.status(400).json({ error: "Eksik parametre." });
+  const sessionRobloxId = req.session.user.roblox_id;
+  if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  if (!access.ok) return res.status(403).json({ error: access.reason });
+  const banReason = reason || "Bu sunucudan yasaklandınız.";
+  if (!serverBanCache[placeId]) serverBanCache[placeId] = {};
+  if (!serverBanCache[placeId][serverId]) serverBanCache[placeId][serverId] = {};
+  serverBanCache[placeId][serverId][String(userId)] = banReason;
+  // Sadece o servere kick at
+  try {
+    await ocMessagingPublish(parseInt(placeId), "Kick", { userid: userId, reason: banReason, serverId });
+  } catch(e) { console.error("[server-ban] kick HATA:", e.message); }
+  console.log(`[server-ban] userId=${userId} serverId=${serverId} placeId=${placeId}`);
+  res.json({ ok: true });
+});
+
+// ── SERVER BAN KALDIR ──
+app.post("/api/game-server-unban", requireAuth, requireTeam, async (req, res) => {
+  const { placeId, serverId, userId } = req.body;
+  if (!placeId || !serverId || !userId) return res.status(400).json({ error: "Eksik parametre." });
+  if (serverBanCache[placeId]?.[serverId]?.[String(userId)]) {
+    delete serverBanCache[placeId][serverId][String(userId)];
+  }
+  res.json({ ok: true });
+});
+
+// ── SERVER BAN LİSTESİ ──
+app.get("/api/game-server-bans", requireAuth, requireTeam, async (req, res) => {
+  const { placeId, serverId } = req.query;
+  if (!placeId || !serverId) return res.status(400).json({ error: "Eksik parametre." });
+  const bans = serverBanCache[placeId]?.[serverId] || {};
+  // userId → username çevir
+  const userIds = Object.keys(bans).map(Number).filter(Boolean);
+  let result = [];
+  if (userIds.length) {
+    try {
+      const nr = await axios.post("https://users.roblox.com/v1/users", { userIds, excludeBannedUsers: false });
+      const nameMap = {};
+      (nr.data?.data || []).forEach(u => { nameMap[u.id] = u.name; });
+      result = userIds.map(uid => ({ userId: uid, username: nameMap[uid] || String(uid), reason: bans[uid] }));
+    } catch(e) { result = userIds.map(uid => ({ userId: uid, username: String(uid), reason: bans[uid] })); }
+  }
+  res.json({ bans: result });
+});
+
+// ── SERVER KICK ──
+app.post("/api/game-kick", requireAuth, requireTeam, async (req, res) => {
+  const { placeId, userId, reason } = req.body;
+  if (!placeId || !userId) return res.status(400).json({ error: "Eksik parametre." });
+  const sessionRobloxId = req.session.user.roblox_id;
+  if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  if (!access.ok) return res.status(403).json({ error: access.reason });
+  try {
+    await ocMessagingPublish(parseInt(placeId), "Kick", { userid: userId, reason: reason || "Sunucudan atıldınız." });
+    console.log(`[kick] userId=${userId} placeId=${placeId} by=${req.session.user.id}`);
+    res.json({ ok: true });
+  } catch(e) {
+    console.error("[kick] HATA:", e.message);
+    res.status(500).json({ error: "Kick işlemi başarısız: " + e.message });
   }
 });
 
