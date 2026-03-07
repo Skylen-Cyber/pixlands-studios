@@ -67,6 +67,29 @@ const ROWIFI_COOLDOWN_MS = 15 * 1000;
 const KVSchema = new mongoose.Schema({ key: { type: String, unique: true }, value: mongoose.Schema.Types.Mixed }, { versionKey: false });
 const KV = mongoose.model("KV", KVSchema);
 
+// ── SİTE YÖNETİMİ: MongoDB'den ekip/oyun/grup ──
+async function getTeam() {
+  const doc = await KV.findOne({ key: "site.team" }).lean();
+  return doc ? doc.value : [];
+}
+async function getGroups() {
+  const doc = await KV.findOne({ key: "site.groups" }).lean();
+  return doc ? doc.value : [];
+}
+async function getGames() {
+  const doc = await KV.findOne({ key: "site.games" }).lean();
+  return doc ? doc.value : [];
+}
+function isFounder(discordId) {
+  const founders = (process.env.FOUNDERS || "1454747716088234024").split(",").map(s => s.trim());
+  return founders.includes(String(discordId));
+}
+function requireFounder(req, res, next) {
+  if (!req.session.user) return res.status(401).json({ error: "Giriş yapın." });
+  if (!isFounder(req.session.user.id)) return res.status(403).json({ error: "Bu işlem için kurucu yetkisi gerekli." });
+  next();
+}
+
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("[OK] MongoDB bağlandı."))
   .catch(e => console.error("[HATA] MongoDB bağlanamadı:", e.message));
@@ -125,7 +148,14 @@ async function sendWebhookLog(webhookUrl, opts) {
 
 /* ── YARDIMCI: Ekipte mi? ── */
 function isTeamMember(discordId) {
-  return cfg.TEAM.some(m => m.discordId === String(discordId));
+  // Sync fallback - sadece config.js'deki statik listeye bakar
+  // Dinamik kontrol için requireTeam middleware kullanın
+  return false; // cfg.TEAM kaldırıldı, requireTeam middleware kullanın
+}
+async function isTeamMemberAsync(discordId) {
+  if (isFounder(discordId)) return true;
+  const team = await getTeam();
+  return team.some(m => m.discordId === String(discordId));
 }
 
 /* ── YARDIMCI: Sayı formatlama ── */
@@ -138,11 +168,11 @@ function formatCount(n) {
 /* ════════════════════════════════════════
    CONFIG endpoint
 ════════════════════════════════════════ */
-app.get("/api/config", (req, res) => {
+app.get("/api/config", async (req, res) => {
   res.json({
     siteName: cfg.SITE_NAME,
     guildInvite: cfg.DISCORD_GUILD_INVITE,
-    gamesCount: (cfg.GAMES || []).length,
+    gamesCount: (await getGames()).length,
   });
 });
 
@@ -151,14 +181,15 @@ app.get("/api/config", (req, res) => {
 ════════════════════════════════════════ */
 app.get("/api/team", async (req, res) => {
   try {
-    const sorted = [...cfg.TEAM].sort((a, b) => a.sira - b.sira);
+    const team = await getTeam();
+    const sorted = [...team].sort((a, b) => (a.sira||0) - (b.sira||0));
     const members = await Promise.all(sorted.map(async (m) => {
       try {
         const u = await fetchDiscordUser(m.discordId);
         const avatar = u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : `https://cdn.discordapp.com/embed/avatars/0.png`;
-        return { sira: m.sira, tur: m.tur, username: u.username, displayName: u.global_name || u.username, avatar, id: u.id, description: m.description || "" };
+        return { sira: m.sira, tur: m.tur, username: u.username, displayName: u.global_name || u.username, avatar, id: u.id, description: m.description || "", roblox_username: m.roblox_username || null, roblox_id: m.roblox_id || null };
       } catch(e) {
-        return { sira: m.sira, tur: m.tur, username: "Bilinmiyor", displayName: "Bilinmiyor", avatar: "", id: m.discordId, description: "" };
+        return { sira: m.sira, tur: m.tur, username: "Bilinmiyor", displayName: "Bilinmiyor", avatar: "", id: m.discordId, description: "", roblox_username: m.roblox_username || null, roblox_id: m.roblox_id || null };
       }
     }));
     res.json({ members });
@@ -295,13 +326,14 @@ app.get("/api/cooldown", requireAuth, (req, res) => {
 ════════════════════════════════════════ */
 app.get("/api/groups", requireAuth, async (req, res) => {
   try {
-    const result = await Promise.all(cfg.GROUPS.map(async (g) => {
+    const groups = await getGroups();
+    const result = await Promise.all(groups.map(async (g) => {
       try {
         const info = await noblox.getGroup(g.groupId);
         let icon = "";
         try { const thumbs = await noblox.getThumbnails([{ type: "GroupIcon", targetId: g.groupId, size: "420x420" }]); icon = thumbs[0]?.imageUrl || ""; } catch(e) {}
-        return { id: g.groupId, name: info.name, icon, minAdminRank: g.minAdminRank || 0 };
-      } catch(e) { return { id: g.groupId, name: `Grup ${g.groupId}`, icon: "", minAdminRank: g.minAdminRank || 0 }; }
+        return { id: g.groupId, name: info.name, icon, minAdminRank: g.minAdminRank || 0, webhook: g.webhook || "" };
+      } catch(e) { return { id: g.groupId, name: `Grup ${g.groupId}`, icon: "", minAdminRank: g.minAdminRank || 0, webhook: g.webhook || "" }; }
     }));
     res.json({ groups: result });
   } catch(e) { res.status(500).json({ error: "Gruplar alınamadı." }); }
@@ -347,7 +379,8 @@ app.post("/api/rank-action", requireAuth, async (req, res) => {
   if (rankRemaining > 0) return res.status(429).json({ error: `Lütfen ${Math.ceil(rankRemaining / 1000)} saniye bekleyin.`, retryAfter: Math.ceil(rankRemaining / 1000) });
 
   const GROUP_ID = parseInt(groupId, 10);
-  const groupCfg = cfg.GROUPS.find(g => g.groupId === GROUP_ID);
+  const allGroups = await getGroups();
+  const groupCfg = allGroups.find(g => g.groupId === GROUP_ID);
   if (!groupCfg) return res.status(400).json({ error: "Geçersiz grup." });
 
   const sessionRobloxId = req.session.user.roblox_id;
@@ -424,7 +457,7 @@ app.get("/api/user-rank", requireAuth, async (req, res) => {
    OYUNLAR — Roblox Open Cloud API
 ════════════════════════════════════════ */
 app.get("/api/games", requireAuth, async (req, res) => {
-  const games = cfg.GAMES || [];
+  const games = await getGames();
   if (!games.length) return res.json({ games: [] });
   const result = await Promise.all(games.map(async (g) => {
     // Aktiflik: kendi /api/game-servers mantığıyla kontrol et
@@ -560,21 +593,25 @@ app.get("/api/game-players", requireAuth, async (req, res) => {
 ════════════════════════════════════════ */
 
 // isTeam kontrolü için middleware
-function requireTeam(req, res, next) {
+async function requireTeam(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: "Oturum açmanız gerekiyor." });
   const discordId = req.session.user.id;
-  if (!cfg.TEAM.some(m => m.discordId === String(discordId))) return res.status(403).json({ error: "Bu işlem için yetkiniz yok." });
+  if (isFounder(discordId)) return next();
+  const team = await getTeam();
+  if (!team.some(m => m.discordId === String(discordId))) return res.status(403).json({ error: "Bu işlem için yetkiniz yok." });
   next();
 }
 
 // Oyun bazlı rank kontrolü — kullanıcının o oyun için minAdminRank'ı karşılayıp karşılamadığını kontrol eder
 async function checkGameAccess(robloxId, placeId) {
-  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  const games = await getGames();
+  const game = games.find(g => g.placeId === placeId);
   if (!game) return { ok: false, reason: "Oyun bulunamadı." };
   const minRank = game.minAdminRank || 0;
   if (minRank === 0) return { ok: true };
-  // İlk grubu referans al (birden fazla grup varsa genişletilebilir)
-  const group = cfg.GROUPS[0];
+  // İlk grubu referans al
+  const allGroups = await getGroups();
+  const group = allGroups[0];
   if (!group) return { ok: true };
   try {
     const rank = await noblox.getRankInGroup(group.groupId, robloxId);
@@ -585,7 +622,8 @@ async function checkGameAccess(robloxId, placeId) {
 
 // Open Cloud üzerinden DataStore'a yaz (global ban)
 async function ocDataStoreSet(placeId, key, value) {
-  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  const games = await getGames();
+  const game = games.find(g => g.placeId === placeId);
   if (!game?.openCloudApiKey) throw new Error("Open Cloud API key bulunamadı.");
   // universeId al
   const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
@@ -599,7 +637,8 @@ async function ocDataStoreSet(placeId, key, value) {
 }
 
 async function ocDataStoreDelete(placeId, key) {
-  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  const games = await getGames();
+  const game = games.find(g => g.placeId === placeId);
   if (!game?.openCloudApiKey) throw new Error("Open Cloud API key bulunamadı.");
   const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
   const universeId = uRes.data?.universeId;
@@ -612,7 +651,8 @@ async function ocDataStoreDelete(placeId, key) {
 
 // Open Cloud üzerinden sadece belirli servere MessagingService mesajı gönder
 async function ocMessagingPublish(placeId, topic, data) {
-  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  const games = await getGames();
+  const game = games.find(g => g.placeId === placeId);
   if (!game?.openCloudApiKey) throw new Error("Open Cloud API key bulunamadı.");
   const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
   const universeId = uRes.data?.universeId;
@@ -663,70 +703,81 @@ app.post("/api/game-unban", requireAuth, requireTeam, async (req, res) => {
   }
 });
 
-// ── GLOBAL BAN LİSTESİ (noblox.js DataStore) ──
+// ── GLOBAL BAN LİSTESİ ──
 app.get("/api/game-bans", requireAuth, requireTeam, async (req, res) => {
   const placeId = parseInt(req.query.placeId, 10);
   if (!placeId) return res.status(400).json({ error: "placeId gerekli." });
-  const game = cfg.GAMES.find(g => g.placeId === placeId);
+  const games = await getGames();
+  const game = games.find(g => g.placeId === placeId);
   if (!game?.openCloudApiKey) return res.status(400).json({ error: "Open Cloud API key bulunamadı." });
   try {
     const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
     const universeId = uRes.data?.universeId;
     if (!universeId) return res.status(500).json({ error: "universeId alınamadı." });
-    // noblox.js ile DataStore key listesi çek
-    let keys = [];
+
+    // 1. Adım: getDatastores (liste) - Open Cloud
+    let listedKeys = [];
     try {
-      const dsPage = await noblox.listDatastoreEntries({ universeId, datastoreName: "BanStore" });
-      keys = dsPage.keys ? dsPage.keys.map(k => k.key) : [];
-    } catch(e) {
-      // noblox.js başarısız olursa Open Cloud API'ye fallback
       const listRes = await axios.get(
         `https://apis.roblox.com/datastores/v1/universes/${universeId}/standard-datastores/datastore/entries?datastoreName=BanStore&limit=100`,
         { headers: { "x-api-key": game.openCloudApiKey } }
       );
-      keys = (listRes.data?.keys || []).map(k => k.key);
+      listedKeys = (listRes.data?.keys || []).map(k => k.key);
+    } catch(e) {
+      console.error("[game-bans] liste alınamadı:", e.message);
     }
-    if (!keys.length) return res.json({ bans: [] });
-    // Her key için reason çek (noblox.js getDatastoreEntry)
-    const entries = await Promise.all(keys.map(async key => {
+
+    if (!listedKeys.length) return res.json({ bans: [], total: 0 });
+
+    // 2. Adım: Her key için getDatastore ile TEK TEK doğrula
+    // Listede görünüp gerçekte silinmiş olanları atla
+    const entries = [];
+    for (const key of listedKeys) {
       try {
-        let reason = "?";
-        try {
-          const val = await noblox.getDatastoreEntry({ universeId, datastoreName: "BanStore", entryKey: key });
-          reason = val?.data ?? val ?? "?";
-        } catch(e2) {
-          // fallback: Open Cloud
-          const r = await axios.get(
-            `https://apis.roblox.com/datastores/v1/universes/${universeId}/standard-datastores/datastore/entries/entry?datastoreName=BanStore&entryKey=${encodeURIComponent(key)}`,
-            { headers: { "x-api-key": game.openCloudApiKey } }
-          );
-          reason = r.data;
-        }
-        return { userId: key, reason };
-      } catch(e) { return { userId: key, reason: "?" }; }
-    }));
-    // userId → username + displayName + avatar
-    const userIds = keys.map(Number).filter(Boolean);
+        const r = await axios.get(
+          `https://apis.roblox.com/datastores/v1/universes/${universeId}/standard-datastores/datastore/entries/entry?datastoreName=BanStore&entryKey=${encodeURIComponent(key)}`,
+          { headers: { "x-api-key": game.openCloudApiKey } }
+        );
+        // 200 geldi ve veri var → gerçekten banlı
+        const reason = typeof r.data === "string" ? r.data : JSON.stringify(r.data);
+        entries.push({ userId: key, reason });
+      } catch(e) {
+        // 404 veya hata → silinmiş/yok, atla
+        console.log(`[game-bans] key=${key} doğrulanamadı, atlanıyor:`, e.response?.status);
+      }
+    }
+
+    if (!entries.length) return res.json({ bans: [], total: 0 });
+
+    // 3. Adım: userId → username + displayName + avatar (Roblox API)
+    const userIds = entries.map(e => parseInt(e.userId)).filter(Boolean);
     const nameMap = {};
     const avatarMap = {};
     if (userIds.length) {
       try {
         const nr = await axios.post("https://users.roblox.com/v1/users", { userIds, excludeBannedUsers: false });
-        (nr.data?.data || []).forEach(u => { nameMap[u.id] = { name: u.name, displayName: u.displayName }; });
+        (nr.data?.data || []).forEach(u => {
+          nameMap[u.id] = { name: u.name, displayName: u.displayName };
+        });
       } catch(e) {}
       try {
         const ar = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userIds.join(",")}&size=48x48&format=Png`);
         (ar.data?.data || []).forEach(t => { avatarMap[t.targetId] = t.imageUrl || ""; });
       } catch(e) {}
     }
-    const bans = entries.map(e => ({
-      userId: e.userId,
-      username: nameMap[parseInt(e.userId)]?.name || e.userId,
-      displayName: nameMap[parseInt(e.userId)]?.displayName || nameMap[parseInt(e.userId)]?.name || e.userId,
-      avatar: avatarMap[parseInt(e.userId)] || "",
-      reason: e.reason
-    }));
-    res.json({ bans });
+
+    const bans = entries.map(e => {
+      const uid = parseInt(e.userId);
+      return {
+        userId: e.userId,
+        username: nameMap[uid]?.name || e.userId,
+        displayName: nameMap[uid]?.displayName || nameMap[uid]?.name || e.userId,
+        avatar: avatarMap[uid] || "",
+        reason: e.reason
+      };
+    });
+
+    res.json({ bans, total: bans.length });
   } catch(e) {
     console.error("[game-bans] HATA:", e.response?.status, e.message);
     res.status(500).json({ error: "Ban listesi alınamadı: " + e.message });
@@ -813,7 +864,8 @@ app.get("/api/profile/:discordId", async (req, res) => {
   const raw = await dbGet(`profiles.${discordId}.data`);
   if (raw) profileData = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!profileData) return res.status(404).json({ error: "Bu kullanıcı henüz giriş yapmadı." });
-  const teamRole = cfg.TEAM.find(m => m.discordId === String(discordId));
+  const team = await getTeam();
+  const teamRole = team.find(m => m.discordId === String(discordId));
   res.json({ ...profileData, teamRole: teamRole ? teamRole.tur : null });
 });
 
@@ -839,6 +891,107 @@ app.post("/api/admin-refresh-profile/:discordId", async (req, res) => {
 });
 
 /* ════════════════════════════════════════
+   SİTE YÖNETİMİ — Kurucu endpoint'leri
+════════════════════════════════════════ */
+
+// Kurucu kontrolü endpoint
+app.get("/api/admin/check", requireAuth, (req, res) => {
+  res.json({ isFounder: isFounder(req.session.user.id) });
+});
+
+// ── EKİP LİSTESİ (yönetim için ham data) ──
+app.get("/api/admin/team", requireAuth, requireFounder, async (req, res) => {
+  const team = await getTeam();
+  res.json({ team });
+});
+
+// ── EKİP EKLE ──
+app.post("/api/admin/team/add", requireAuth, requireFounder, async (req, res) => {
+  const { discordId, tur, description, roblox_username } = req.body;
+  if (!discordId || !tur) return res.status(400).json({ error: "discordId ve tur gerekli." });
+  const team = await getTeam();
+  if (team.some(m => m.discordId === String(discordId))) return res.status(400).json({ error: "Bu kişi zaten ekipte." });
+  // Roblox ID'yi kullanıcı adından çek
+  let roblox_id = null;
+  if (roblox_username) {
+    try { roblox_id = await noblox.getIdFromUsername(roblox_username); } catch(e) {}
+  }
+  const newMember = { discordId: String(discordId), tur, description: description || "", sira: team.length + 1, roblox_username: roblox_username || null, roblox_id: roblox_id || null };
+  team.push(newMember);
+  await KV.findOneAndUpdate({ key: "site.team" }, { value: team }, { upsert: true });
+  res.json({ ok: true, member: newMember });
+});
+
+// ── EKİP SİL ──
+app.post("/api/admin/team/remove", requireAuth, requireFounder, async (req, res) => {
+  const { discordId } = req.body;
+  if (!discordId) return res.status(400).json({ error: "discordId gerekli." });
+  const team = await getTeam();
+  const newTeam = team.filter(m => m.discordId !== String(discordId));
+  await KV.findOneAndUpdate({ key: "site.team" }, { value: newTeam }, { upsert: true });
+  res.json({ ok: true });
+});
+
+// ── OYUN LİSTESİ (yönetim için ham data) ──
+app.get("/api/admin/games", requireAuth, requireFounder, async (req, res) => {
+  const games = await getGames();
+  res.json({ games: games.map(g => ({ ...g, openCloudApiKey: g.openCloudApiKey ? "***" : "" })) });
+});
+
+// ── OYUN EKLE ──
+app.post("/api/admin/games/add", requireAuth, requireFounder, async (req, res) => {
+  const { placeId, name, openCloudApiKey, minAdminRank } = req.body;
+  if (!placeId || !name) return res.status(400).json({ error: "placeId ve name gerekli." });
+  const games = await getGames();
+  const pid = parseInt(placeId, 10);
+  if (games.some(g => g.placeId === pid)) return res.status(400).json({ error: "Bu oyun zaten ekli." });
+  games.push({ placeId: pid, name, openCloudApiKey: openCloudApiKey || "", minAdminRank: parseInt(minAdminRank, 10) || 0 });
+  await KV.findOneAndUpdate({ key: "site.games" }, { value: games }, { upsert: true });
+  res.json({ ok: true });
+});
+
+// ── OYUN SİL ──
+app.post("/api/admin/games/remove", requireAuth, requireFounder, async (req, res) => {
+  const { placeId } = req.body;
+  if (!placeId) return res.status(400).json({ error: "placeId gerekli." });
+  const games = await getGames();
+  const newGames = games.filter(g => g.placeId !== parseInt(placeId, 10));
+  await KV.findOneAndUpdate({ key: "site.games" }, { value: newGames }, { upsert: true });
+  res.json({ ok: true });
+});
+
+// ── GRUP LİSTESİ (yönetim için ham data) ──
+app.get("/api/admin/groups", requireAuth, requireFounder, async (req, res) => {
+  const groups = await getGroups();
+  res.json({ groups });
+});
+
+// ── GRUP EKLE ──
+app.post("/api/admin/groups/add", requireAuth, requireFounder, async (req, res) => {
+  const { groupId, webhook, minAdminRank } = req.body;
+  if (!groupId) return res.status(400).json({ error: "groupId gerekli." });
+  const groups = await getGroups();
+  const gid = parseInt(groupId, 10);
+  if (groups.some(g => g.groupId === gid)) return res.status(400).json({ error: "Bu grup zaten ekli." });
+  // Grup adını doğrula
+  let groupName = `Grup ${gid}`;
+  try { const info = await noblox.getGroup(gid); groupName = info.name; } catch(e) { return res.status(400).json({ error: "Grup bulunamadı. groupId'yi kontrol edin." }); }
+  groups.push({ groupId: gid, webhook: webhook || "", minAdminRank: parseInt(minAdminRank, 10) || 0 });
+  await KV.findOneAndUpdate({ key: "site.groups" }, { value: groups }, { upsert: true });
+  res.json({ ok: true, groupName });
+});
+
+// ── GRUP SİL ──
+app.post("/api/admin/groups/remove", requireAuth, requireFounder, async (req, res) => {
+  const { groupId } = req.body;
+  if (!groupId) return res.status(400).json({ error: "groupId gerekli." });
+  const groups = await getGroups();
+  const newGroups = groups.filter(g => g.groupId !== parseInt(groupId, 10));
+  await KV.findOneAndUpdate({ key: "site.groups" }, { value: newGroups }, { upsert: true });
+  res.json({ ok: true });
+});
+
+/* ════════════════════════════════════════
    İSTATİSTİKLER
 ════════════════════════════════════════ */
 app.get("/api/stats", async (req, res) => {
@@ -849,8 +1002,8 @@ app.get("/api/stats", async (req, res) => {
   }
   res.json({
     memberCount: formatCount(memberCount),
-    groupCount: cfg.GROUPS.length,
-    gameCount: (cfg.GAMES || []).length,
+    groupCount: (await getGroups()).length,
+    gameCount: (await getGames()).length,
   });
 });
 
