@@ -323,8 +323,9 @@ async function adminRefresh(targetId){
   document.getElementById("nav-name").textContent=sn;
   document.getElementById("fname").textContent=sn;
   document.getElementById("fcopy").textContent=`© 2026 ${sn} — Tüm hakları saklıdır.`;
+  // title sunucu tarafından inject edildi
   const fd=document.getElementById("footer-discord");if(fd)fd.href=INVITE;
-  document.title=sn;
+  // title sunucu tarafından inject edildi
 
   // /profile?=DISCORDID desteği
   const targetId=new URLSearchParams(location.search).get("");

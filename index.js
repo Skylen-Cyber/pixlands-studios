@@ -926,6 +926,25 @@ app.post("/api/admin/team/add", requireAuth, requireFounder, async (req, res) =>
   res.json({ ok: true, member: newMember });
 });
 
+// ── EKİP GÜNCELLE ──
+app.post("/api/admin/team/update", requireAuth, requireFounder, async (req, res) => {
+  const { discordId, tur, description, roblox_username } = req.body;
+  if (!discordId) return res.status(400).json({ error: "discordId gerekli." });
+  const team = await getTeam();
+  const idx = team.findIndex(m => m.id === discordId || m.discordId === discordId);
+  if (idx === -1) return res.status(404).json({ error: "Üye bulunamadı." });
+  if (tur !== undefined) team[idx].tur = tur;
+  if (description !== undefined) team[idx].description = description;
+  if (roblox_username !== undefined) {
+    team[idx].roblox_username = roblox_username || null;
+    if (roblox_username) {
+      try { team[idx].roblox_id = await noblox.getIdFromUsername(roblox_username); } catch(e) {}
+    } else { team[idx].roblox_id = null; }
+  }
+  await KV.findOneAndUpdate({ key: "site.team" }, { value: team }, { upsert: true });
+  res.json({ ok: true });
+});
+
 // ── EKİP SİL ──
 app.post("/api/admin/team/remove", requireAuth, requireFounder, async (req, res) => {
   const { discordId } = req.body;
@@ -1109,13 +1128,15 @@ app.get("/api/stats", async (req, res) => {
 /* ── STATIC ── */
 const PUBLIC = path.join(__dirname, "public");
 app.use(express.static(PUBLIC));
-// Site adını HTML title'larına inject et
+// Site adını HTML'e inject et (title + tüm placeholder'lar)
+const fs2 = require("fs");
 function sendHTML(res, filename) {
-  const fs2 = require("fs");
   const filePath = path.join(PUBLIC, filename);
   let html = fs2.readFileSync(filePath, "utf8");
   const siteName = cfg.SITE_NAME || "Site";
   html = html.replace(/{{SITE}}/g, siteName);
+  // <title> tag'ini de güncelle
+  html = html.replace(/<title>(.*?)<\/title>/, (m, inner) => `<title>${inner.replace(/{{SITE}}/g, siteName)}</title>`);
   res.setHeader("Content-Type", "text/html");
   res.send(html);
 }
@@ -1128,7 +1149,6 @@ app.get("/privacy",   (_, res) => sendHTML(res, "privacy.html"));
 
 /* ── 404 ── */
 app.use((req, res) => {
-  const fs2 = require("fs");
   let html404 = fs2.readFileSync(path.join(PUBLIC, "404.html"), "utf8");
   html404 = html404.replace(/{{SITE}}/g, cfg.SITE_NAME || "Site");
   res.status(404).setHeader("Content-Type", "text/html").send(html404);

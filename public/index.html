@@ -364,12 +364,13 @@ async function loadTeam(){
   const loMsgTimer=setTimeout(()=>document.getElementById("lo-msg").classList.add("show"),5000);
   const cfg=await(await fetch("/api/config")).json();
   SITE=cfg.siteName||"";INVITE=cfg.guildInvite||"/";
+  // title sunucu tarafından inject edildi
   document.getElementById("nav-name").textContent=SITE;
   document.getElementById("fname").textContent=SITE;
   document.getElementById("fcopy").textContent=`© 2026 ${SITE} — Tüm hakları saklıdır.`;
   document.getElementById("footer-discord").href=INVITE;
   document.getElementById("about-t").textContent=`Neden ${SITE}?`;
-  document.title=SITE;
+  // title sunucu tarafından inject edildi
 
   let me;
   try{me=await(await fetch("/auth/me")).json();}catch(e){me={loggedIn:false};}

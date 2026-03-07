@@ -441,6 +441,19 @@
 </div>
 
 <div id="conf"><div id="conf-bg" onclick="closeConf()"></div><div id="conf-box"><h3 id="conf-t">İşlemi Onayla</h3><div class="cmeta" id="conf-m"></div><div class="cbts"><button class="cno" onclick="closeConf()">İptal</button><button class="cyes" onclick="doAct()">Eminim, Uygula</button></div></div></div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);" onclick="closeEditModal()"></div>
+  <div style="position:relative;z-index:1;background:#131928;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 24px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <h3 id="edit-modal-title" style="font-size:.95rem;font-weight:800;margin-bottom:18px;color:#fff">Düzenle</h3>
+    <div id="edit-modal-fields" style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeEditModal()" style="padding:8px 18px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);font-family:Inter,sans-serif;font-size:.85rem;font-weight:600;cursor:pointer">İptal</button>
+      <button id="edit-modal-save" style="padding:8px 18px;border-radius:8px;background:#2563eb;border:none;color:#fff;font-family:Inter,sans-serif;font-size:.85rem;font-weight:700;cursor:pointer">Kaydet</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <footer>
@@ -570,7 +583,7 @@ async function admLoadTeam(){
     for(const m of d.team){
       const el=document.createElement("div");el.className="adm-item";
       const rblxLink=m.roblox_id?`<a href="https://www.roblox.com/tr/users/${m.roblox_id}/profile" target="_blank" style="color:#60a5fa;font-size:.72rem;text-decoration:none">Roblox ↗</a>`:"";
-      el.innerHTML=`<div class="adm-item-info"><div class="adm-item-name">${m.tur||"—"}</div><div class="adm-item-sub">ID: ${m.discordId}${m.roblox_username?" • "+m.roblox_username:""} ${rblxLink}</div></div><button class="adm-del" onclick="admRemoveTeam('${m.discordId}',this)">Sil</button>`;
+      el.innerHTML=`<div class="adm-item-info"><div class="adm-item-name">${m.tur||"—"}</div><div class="adm-item-sub">ID: ${m.discordId}${m.roblox_username?" • "+m.roblox_username:""} ${rblxLink}</div></div><button class="adm-edit" onclick="admEditTeam('${m.discordId}','${(m.tur||"").replace(/'/g,"\'")}','${(m.description||"").replace(/'/g,"\'")}','${(m.roblox_username||"").replace(/'/g,"\'")}')">Düzenle</button><button class="adm-del" onclick="admRemoveTeam('${m.discordId}',this)">Sil</button>`;
       list.appendChild(el);
     }
   }catch(e){list.innerHTML='<div style="color:#f87171;font-size:.83rem">Yüklenemedi.</div>';}
@@ -584,7 +597,8 @@ async function admLoadGames(){
     if(!d.games||!d.games.length){list.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem;padding:8px 0">Oyun yok.</div>';return;}
     d.games.forEach(function(g){
       const el=document.createElement("div");el.className="adm-item";
-      const icon=g.icon?`<img src="${g.icon}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.display='none'"/>`:`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
+      const iconSrc=g.icon||(g.placeId?`https://www.roblox.com/asset-thumbnail/image?assetId=${g.placeId}&width=420&height=420&format=png`:"");
+      const icon=iconSrc?`<img src="${iconSrc}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.background='rgba(255,255,255,.08)';this.style.display='none'"/>`:`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
       const link=`<a href="https://www.roblox.com/games/${g.placeId}" target="_blank" style="font-size:.72rem;color:#60a5fa;text-decoration:none;flex-shrink:0;padding:4px 8px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);border-radius:6px;white-space:nowrap">Roblox ↗</a>`;
       el.innerHTML=`${icon}<div class="adm-item-info"><div class="adm-item-name">${g.name}</div><div class="adm-item-sub">PlaceID: ${g.placeId} • Min Rank: ${g.minAdminRank||0}</div></div>${link}<button class="adm-edit" onclick="admEditGame(${g.placeId},'${g.name.replace(/'/g,"\'")}',${g.minAdminRank||0})">Düzenle</button><button class="adm-del" onclick="admRemoveGame(${g.placeId},this)">Sil</button>`;
       list.appendChild(el);
@@ -600,7 +614,8 @@ async function admLoadGroups(){
     if(!d.groups||!d.groups.length){list.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem;padding:8px 0">Grup yok.</div>';return;}
     d.groups.forEach(function(g){
       const el=document.createElement("div");el.className="adm-item";
-      const icon=g.icon?`<img src="${g.icon}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.display='none'"/>`:`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
+      const iconSrc=g.icon||(g.placeId?`https://www.roblox.com/asset-thumbnail/image?assetId=${g.placeId}&width=420&height=420&format=png`:"");
+      const icon=iconSrc?`<img src="${iconSrc}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.background='rgba(255,255,255,.08)';this.style.display='none'"/>`:`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
       const link=`<a href="https://www.roblox.com/groups/${g.groupId}" target="_blank" style="font-size:.72rem;color:#60a5fa;text-decoration:none;flex-shrink:0;padding:4px 8px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);border-radius:6px;white-space:nowrap">Roblox ↗</a>`;
       const name=g.name||`Grup ${g.groupId}`;
       el.innerHTML=`${icon}<div class="adm-item-info"><div class="adm-item-name">${name}</div><div class="adm-item-sub">Min Rank: ${g.minAdminRank||0}${g.webhook?" • Webhook var":""}</div></div>${link}<button class="adm-edit" onclick="admEditGroup(${g.groupId},${g.minAdminRank||0},'${(g.webhook||"").replace(/'/g,"\'")}')">Düzenle</button><button class="adm-del" onclick="admRemoveGroup(${g.groupId},this)">Sil</button>`;
@@ -782,20 +797,72 @@ async function admAddGroup(){
     admLoadGroups();
   } else showToast(r.error||"Hata.",true);
 }
+// ── EDIT MODAL ──
+let _editModalSaveFn=null;
+function openEditModal(title, fields, onSave){
+  document.getElementById("edit-modal-title").textContent=title;
+  const fc=document.getElementById("edit-modal-fields");
+  fc.innerHTML="";
+  fields.forEach(function(f){
+    const wrap=document.createElement("div");
+    wrap.style.cssText="display:flex;flex-direction:column;gap:5px;";
+    const lbl=document.createElement("label");
+    lbl.textContent=f.label;
+    lbl.style.cssText="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.5px;";
+    const inp=document.createElement("input");
+    inp.type=f.type||"text";
+    inp.id="edit-f-"+f.key;
+    inp.value=f.value!==undefined?f.value:"";
+    inp.placeholder=f.placeholder||"";
+    inp.style.cssText="background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:9px;padding:11px 14px;color:#fff;font-family:Inter,sans-serif;font-size:.9rem;outline:none;transition:border-color .18s;";
+    inp.addEventListener("focus",()=>inp.style.borderColor="#3b82f6");
+    inp.addEventListener("blur",()=>inp.style.borderColor="rgba(255,255,255,.1)");
+    wrap.appendChild(lbl);wrap.appendChild(inp);fc.appendChild(wrap);
+  });
+  _editModalSaveFn=onSave;
+  document.getElementById("edit-modal-save").onclick=function(){
+    const vals={};
+    fields.forEach(f=>{vals[f.key]=document.getElementById("edit-f-"+f.key).value;});
+    onSave(vals,function(){closeEditModal();});
+  };
+  const modal=document.getElementById("edit-modal");
+  modal.style.display="flex";
+  // Focus first input
+  setTimeout(()=>fc.querySelector("input")?.focus(),50);
+}
+function closeEditModal(){
+  document.getElementById("edit-modal").style.display="none";
+}
+// ESC ile kapat
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeEditModal();});
+
 // ── DÜZENLE FONKSİYONLARI ──
 function admEditGame(placeId, name, minRank){
-  const newRank=prompt(`"${name}" oyununun Min Admin Rank değeri:`, minRank);
-  if(newRank===null)return;
-  fetch("/api/admin/games/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId,minAdminRank:parseInt(newRank)||0})})
-    .then(r=>r.json()).then(d=>{if(d.ok){showToast("Güncellendi.");admLoadGames();}else showToast(d.error||"Hata.",true);});
+  openEditModal(`"${name}" Oyununu Düzenle`,[
+    {key:"minRank",label:"Min Admin Rank",type:"number",value:minRank,placeholder:"0"}
+  ],function(vals,done){
+    fetch("/api/admin/games/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId,minAdminRank:parseInt(vals.minRank)||0})})
+      .then(r=>r.json()).then(d=>{if(d.ok){showToast("Güncellendi.");admLoadGames();done();}else showToast(d.error||"Hata.",true);});
+  });
 }
 function admEditGroup(groupId, minRank, webhook){
-  const newRank=prompt(`Grup ${groupId} - Min Admin Rank:`, minRank);
-  if(newRank===null)return;
-  const newHook=prompt("Webhook URL (boş bırakabilirsin):", webhook||"");
-  if(newHook===null)return;
-  fetch("/api/admin/groups/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupId,minAdminRank:parseInt(newRank)||0,webhook:newHook||""})})
-    .then(r=>r.json()).then(d=>{if(d.ok){showToast("Güncellendi.");admLoadGroups();}else showToast(d.error||"Hata.",true);});
+  openEditModal("Grubu Düzenle",[
+    {key:"minRank",label:"Min Admin Rank",type:"number",value:minRank,placeholder:"0"},
+    {key:"webhook",label:"Webhook URL (opsiyonel)",value:webhook||"",placeholder:"https://discord.com/api/webhooks/..."}
+  ],function(vals,done){
+    fetch("/api/admin/groups/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupId,minAdminRank:parseInt(vals.minRank)||0,webhook:vals.webhook||""})})
+      .then(r=>r.json()).then(d=>{if(d.ok){showToast("Güncellendi.");admLoadGroups();done();}else showToast(d.error||"Hata.",true);});
+  });
+}
+function admEditTeam(discordId, tur, desc, rblxUsername){
+  openEditModal("Ekip Üyesini Düzenle",[
+    {key:"tur",label:"Ünvan",value:tur||"",placeholder:"Kurucu, Moderatör..."},
+    {key:"desc",label:"Açıklama",value:desc||"",placeholder:"Kısa açıklama..."},
+    {key:"rblx",label:"Roblox Kullanıcı Adı",value:rblxUsername||"",placeholder:"Roblox kullanıcı adı..."}
+  ],function(vals,done){
+    fetch("/api/admin/team/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({discordId,tur:vals.tur,description:vals.desc,roblox_username:vals.rblx||null})})
+      .then(r=>r.json()).then(d=>{if(d.ok){showToast("Güncellendi.");admLoadTeam();done();}else showToast(d.error||"Hata.",true);});
+  });
 }
 async function admRemoveGroup(groupId,btn){
   if(!confirm("Bu grubu silmek istiyor musunuz?"))return;
@@ -1458,6 +1525,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".cs")){document.quer
   document.getElementById("nav-name").textContent=sn;
   document.getElementById("fname").textContent=sn;
   document.getElementById("fcopy").textContent=`© 2026 ${sn} — Tüm hakları saklıdır.`;
+  // title sunucu tarafından inject edildi
   const fd=document.getElementById("footer-discord");if(fd)fd.href=cfg.guildInvite||"/";
   document.title=sn;
   let me;
