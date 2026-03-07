@@ -6,8 +6,8 @@ const axios   = require("axios");
 const session = require("express-session");
 
 const rateLimit = require("express-rate-limit");
+const { createClient } = require("redis");
 const path    = require("path");
-const fs      = require("fs");
 const cfg     = require("./config");
 
 const app = express();
@@ -63,36 +63,27 @@ const rowifiCooldowns = new Map(); // discordId -> timestamp
 const RANK_COOLDOWN_MS   = 30 * 1000;
 const ROWIFI_COOLDOWN_MS = 15 * 1000;
 
-const DB_FILE = "./data.json";
+/* ── REDİS ── */
+const redis = createClient({ url: process.env.REDIS_URL });
+redis.on("error", e => console.error("[Redis] Hata:", e.message));
+redis.connect().then(() => console.log("[OK] Redis bağlandı.")).catch(e => console.error("[HATA] Redis bağlanamadı:", e.message));
 
-/* ── JSON DB YARDIMCILARI ── */
-function dbRead() {
-  try { return JSON.parse(fs.readFileSync(DB_FILE, "utf8")); } catch(e) { return {}; }
+async function dbGet(keyPath) {
+  try {
+    const val = await redis.get("db:" + keyPath);
+    if (val === null) return null;
+    try { return JSON.parse(val); } catch { return val; }
+  } catch(e) { console.error("[Redis] GET hata:", e.message); return null; }
 }
-function dbWrite(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf8");
+async function dbSet(keyPath, value) {
+  try {
+    await redis.set("db:" + keyPath, JSON.stringify(value));
+  } catch(e) { console.error("[Redis] SET hata:", e.message); }
 }
-function dbGet(keyPath) {
-  const keys = keyPath.split(".");
-  let cur = dbRead();
-  for (const k of keys) { if (cur == null) return null; cur = cur[k]; }
-  return cur ?? null;
-}
-function dbSet(keyPath, value) {
-  const data = dbRead();
-  const keys = keyPath.split(".");
-  let cur = data;
-  for (let i = 0; i < keys.length - 1; i++) {
-    if (!cur[keys[i]] || typeof cur[keys[i]] !== "object") cur[keys[i]] = {};
-    cur = cur[keys[i]];
-  }
-  cur[keys[keys.length - 1]] = value;
-  dbWrite(data);
-}
-function dbIncr(keyPath) {
-  const cur = parseInt(dbGet(keyPath)) || 0;
-  dbSet(keyPath, cur + 1);
-  return cur + 1;
+async function dbIncr(keyPath) {
+  try {
+    return await redis.incr("db:" + keyPath);
+  } catch(e) { console.error("[Redis] INCR hata:", e.message); return 0; }
 }
 
 /* ── BOT GİRİŞ ── */
@@ -209,13 +200,13 @@ app.get("/auth/discord/callback", async (req, res) => {
 
     // CroxyDB: üye sayısını artır (aynı ID'den tekrar giriş yapılınca artmasın)
     if (true) {
-      const alreadyCounted = dbGet(`profiles.${user.id}.counted`);
+      const alreadyCounted = await dbGet(`profiles.${user.id}.counted`);
       if (!alreadyCounted) {
-        dbIncr("stats.member_count");
-        dbSet(`profiles.${user.id}.counted`, "1");
+        await dbIncr("stats.member_count");
+        await dbSet(`profiles.${user.id}.counted`, "1");
       }
       // Profil verisini kaydet/güncelle
-      dbSet(`profiles.${user.id}.data`, {
+      await dbSet(`profiles.${user.id}.data`, {
         id: user.id, username: user.username, avatar: user.avatar,
         roblox_username, roblox_id, in_guild,
         updatedAt: Date.now()
@@ -254,6 +245,167 @@ app.post("/auth/sync", async (req, res) => {
     u.in_guild = gr.data.some(g => g.id === cfg.DISCORD_GUILD_ID);
   } catch(e) {}
   if (u.in_guild && cfg.ROWIFI_API_KEY && !u.roblox_id) {
+    try {
+      const rw = await axios.get(`https://api.rowifi.xyz/v3/guilds/${cfg.DISCORD_GUILD_ID}/members/${u.id}`, { headers: { Authorization: `Bot ${cfg.ROWIFI_API_KEY}` } });
+      if (rw.data?.roblox_id) { u.roblox_id = rw.data.roblox_id; u.roblox_username = await noblox.getUsernameFromId(u.roblox_id); }
+    } catch(e) {}
+  }
+  res.json({ ok: true, user: u });
+});
+
+/* ── ROWIFI YENİLE ── */
+app.post("/auth/refresh-rowifi", async (req, res) => {
+  if (!req.session.user) return res.status(401).json({ error: "Oturum açın." });
+  const uid = req.session.user.id;
+  const lastRefresh = rowifiCooldowns.get(uid) || 0;
+  const remaining = ROWIFI_COOLDOWN_MS - (Date.now() - lastRefresh);
+  if (remaining > 0) return res.status(429).json({ error: `Lütfen ${Math.ceil(remaining / 1000)} saniye bekleyin.`, retryAfter: Math.ceil(remaining / 1000) });
+  rowifiCooldowns.set(uid, Date.now());
+  try {
+    const rw = await axios.get(`https://api.rowifi.xyz/v3/guilds/${cfg.DISCORD_GUILD_ID}/members/${req.session.user.id}`, { headers: { Authorization: `Bot ${cfg.ROWIFI_API_KEY}` } });
+    const data = rw.data;
+    if (!data?.roblox_id) { req.session.user.roblox_username = null; req.session.user.roblox_id = null; return res.json({ changed: true, verified: false }); }
+    const name = await noblox.getUsernameFromId(data.roblox_id);
+    const changed = name !== req.session.user.roblox_username || String(data.roblox_id) !== String(req.session.user.roblox_id);
+    req.session.user.roblox_username = name; req.session.user.roblox_id = data.roblox_id;
+    // CroxyDB güncelle
+    await dbSet(`profiles.${uid}.data`, { id: uid, username: req.session.user.username, avatar: req.session.user.avatar, roblox_username: name, roblox_id: data.roblox_id, in_guild: req.session.user.in_guild, updatedAt: Date.now() });
+    res.json({ changed, verified: true, robloxUsername: name, robloxId: data.roblox_id });
+  } catch(e) { res.status(500).json({ error: "Rowifi bilgisi alınamadı." }); }
+});
+
+/* ── COOLDOWN SORGULA ── */
+app.get("/api/cooldown", requireAuth, (req, res) => {
+  if (!req.session.user) return res.json({ rank: 0, rowifi: 0 });
+  const uid = req.session.user.id;
+  const rankLeft   = Math.max(0, RANK_COOLDOWN_MS   - (Date.now() - (rankCooldowns.get(uid)   || 0)));
+  const rowifiLeft = Math.max(0, ROWIFI_COOLDOWN_MS - (Date.now() - (rowifiCooldowns.get(uid) || 0)));
+  res.json({ rank: Math.ceil(rankLeft / 1000), rowifi: Math.ceil(rowifiLeft / 1000) });
+});
+
+/* ════════════════════════════════════════
+   GRUPLAR
+════════════════════════════════════════ */
+app.get("/api/groups", requireAuth, async (req, res) => {
+  try {
+    const result = await Promise.all(cfg.GROUPS.map(async (g) => {
+      try {
+        const info = await noblox.getGroup(g.groupId);
+        let icon = "";
+        try { const thumbs = await noblox.getThumbnails([{ type: "GroupIcon", targetId: g.groupId, size: "420x420" }]); icon = thumbs[0]?.imageUrl || ""; } catch(e) {}
+        return { id: g.groupId, name: info.name, icon, minAdminRank: g.minAdminRank || 0 };
+      } catch(e) { return { id: g.groupId, name: `Grup ${g.groupId}`, icon: "", minAdminRank: g.minAdminRank || 0 }; }
+    }));
+    res.json({ groups: result });
+  } catch(e) { res.status(500).json({ error: "Gruplar alınamadı." }); }
+});
+
+/* ── ROLLER ── */
+app.get("/api/grouproles", requireAuth, async (req, res) => {
+  const groupId = parseInt(req.query.groupId, 10);
+  const forDemote = req.query.demote === "1";
+  if (!groupId) return res.status(400).json({ error: "groupId gerekli." });
+  if (!BOT_ID) return res.status(503).json({ error: "Bot hazır değil." });
+  try {
+    const roles = await noblox.getRoles(groupId);
+    const botRank = await noblox.getRankInGroup(groupId, BOT_ID);
+    let filtered = roles.filter(r => r.rank > 0 && r.rank < 255 && r.rank < botRank);
+    if (forDemote && filtered.length > 0) { const minRank = Math.min(...filtered.map(r => r.rank)); filtered = filtered.filter(r => r.rank !== minRank); }
+    res.json({ roles: filtered, botRank });
+  } catch(e) { res.status(500).json({ error: "Roller alınamadı." }); }
+});
+
+/* ── ROBLOX THUMBNAIL ── */
+app.get("/api/roblox-thumbnail", requireAuth, async (req, res) => {
+  const userId = parseInt(req.query.userId, 10);
+  if (!userId) return res.status(400).json({ error: "userId gerekli." });
+  try {
+    const thumbs = await noblox.getPlayerThumbnail([userId], 420, "png", true, "Headshot");
+    res.json({ url: thumbs[0]?.imageUrl || "" });
+  } catch(e) { res.status(500).json({ url: "" }); }
+});
+
+/* ════════════════════════════════════════
+   RANK İŞLEMİ
+════════════════════════════════════════ */
+app.post("/api/rank-action", requireAuth, async (req, res) => {
+  if (!BOT_ID) return res.status(503).json({ error: "Bot henüz hazır değil." });
+  const { action, targetUsername, groupId, rankId } = req.body;
+  if (!action || !targetUsername || !groupId) return res.status(400).json({ error: "Eksik parametre." });
+
+
+  const rankUid = req.session.user.id;
+  const lastRankAction = rankCooldowns.get(rankUid) || 0;
+  const rankRemaining = RANK_COOLDOWN_MS - (Date.now() - lastRankAction);
+  if (rankRemaining > 0) return res.status(429).json({ error: `Lütfen ${Math.ceil(rankRemaining / 1000)} saniye bekleyin.`, retryAfter: Math.ceil(rankRemaining / 1000) });
+
+  const GROUP_ID = parseInt(groupId, 10);
+  const groupCfg = cfg.GROUPS.find(g => g.groupId === GROUP_ID);
+  if (!groupCfg) return res.status(400).json({ error: "Geçersiz grup." });
+
+  const sessionRobloxId = req.session.user.roblox_id;
+  if (!sessionRobloxId) return res.status(403).json({ error: "RoWifi verify yapılmamış." });
+
+  try {
+    const BOT_RANK = await noblox.getRankInGroup(GROUP_ID, BOT_ID);
+    if (BOT_RANK === 0) return res.status(400).json({ error: "Bot bu grupta değil." });
+    const groupRoles = await noblox.getRoles(GROUP_ID);
+    const sortedRoles = groupRoles.filter(r => r.rank > 0 && r.rank < 255).sort((a, b) => a.rank - b.rank);
+    const ISSUER_RANK = await noblox.getRankInGroup(GROUP_ID, sessionRobloxId);
+    const teamMember = isTeamMember(req.session.user.id);
+    const minAdmin = groupCfg.minAdminRank || 0;
+    if (!teamMember && minAdmin > 0 && ISSUER_RANK < minAdmin) return res.status(403).json({ error: `Bu grupta işlem yapabilmek için en az ${minAdmin} rankına sahip olmanız gerekiyor.` });
+    if (!teamMember && ISSUER_RANK === 0) return res.status(403).json({ error: "Siz bu grupta bulunmuyorsunuz." });
+    const TARGET_ID = await noblox.getIdFromUsername(targetUsername);
+    if (!TARGET_ID) return res.status(404).json({ error: "Hedef kullanıcı bulunamadı." });
+    const TARGET_RANK = await noblox.getRankInGroup(GROUP_ID, TARGET_ID);
+    if (TARGET_RANK === 0) return res.status(404).json({ error: "Hedef kullanıcı bu grupta değil." });
+    if (TARGET_RANK === 255) return res.status(403).json({ error: "Grup sahibinin rütbesi değiştirilemez." });
+    if (!teamMember && ISSUER_RANK <= TARGET_RANK) return res.status(403).json({ error: "Kendi rütbenizden yüksek veya eşit birinin rütbesini değiştiremezsiniz." });
+    if (TARGET_RANK >= BOT_RANK) return res.status(403).json({ error: "Bot bu kullanıcının rütbesini değiştiremez." });
+    const OLD_ROLE = groupRoles.find(r => r.rank === TARGET_RANK);
+    let newRank;
+    if (action === "promote") {
+      const higherRoles = sortedRoles.filter(r => r.rank > TARGET_RANK && r.rank < BOT_RANK);
+      if (!higherRoles.length) return res.status(403).json({ error: "Daha yüksek bir rütbe yok veya bot bu rütbeyi veremez." });
+      newRank = higherRoles[0].rank;
+    } else if (action === "demote") {
+      const lowerRoles = sortedRoles.filter(r => r.rank < TARGET_RANK);
+      if (!lowerRoles.length) return res.status(400).json({ error: "Bu kullanıcı zaten en düşük rütbede." });
+      newRank = lowerRoles[lowerRoles.length - 1].rank;
+    } else if (action === "setrank") {
+      if (!rankId) return res.status(400).json({ error: "Rütbe seçilmedi." });
+      newRank = parseInt(rankId, 10);
+      if (newRank === TARGET_RANK) return res.status(400).json({ error: "Kullanıcı zaten bu rütbede." });
+      if (newRank >= BOT_RANK) return res.status(403).json({ error: "Bot bu rütbeyi veremez." });
+    } else return res.status(400).json({ error: "Geçersiz işlem." });
+
+    await noblox.setRank(GROUP_ID, TARGET_ID, newRank);
+    const NEW_ROLE = groupRoles.find(r => r.rank === newRank);
+    rankCooldowns.set(rankUid, Date.now());
+    let groupName = `Grup ${GROUP_ID}`;
+    try { const gi = await noblox.getGroup(GROUP_ID); groupName = gi.name; } catch(e) {}
+    if (groupCfg?.webhook) sendWebhookLog(groupCfg.webhook, { issuerDiscord: req.session.user.username, issuerRoblox: req.session.user.roblox_username, issuerRobloxId: sessionRobloxId, targetRoblox: targetUsername, targetRobloxId: TARGET_ID, action, oldRole: OLD_ROLE?.name || "?", newRole: NEW_ROLE?.name || "?", groupName });
+    res.json({ userName: targetUsername, userId: TARGET_ID, oldRankId: TARGET_RANK, oldRole: OLD_ROLE?.name || "?", newRankId: newRank, newRole: NEW_ROLE?.name || "?", groupName });
+  } catch (e) {
+    console.error("[HATA] rank-action:", e.message);
+    if (e.message?.includes("403")) return res.status(403).json({ error: "Botun bu işlem için yetkisi yok." });
+    res.status(500).json({ error: "Bir hata oluştu: " + e.message });
+  }
+});
+
+/* ── KULLANICI MEVCUT RÜTBE ── */
+app.get("/api/user-rank", requireAuth, async (req, res) => {
+  const { username, groupId } = req.query;
+  if (!username || !groupId) return res.status(400).json({ error: "Eksik." });
+  try {
+    const uid = await noblox.getIdFromUsername(username);
+    if (!uid) return res.status(404).json({ error: "Kullanıcı bulunamadı." });
+    const gid = parseInt(groupId, 10);
+    const groupRoles = await noblox.getRoles(gid);
+    const rank = await noblox.getRankInGroup(gid, uid);
+    const role = groupRoles.find(r => r.rank === rank);
+    const sortedRoles = groupRu.in_guild && cfg.ROWIFI_API_KEY && !u.roblox_id) {
     try {
       const rw = await axios.get(`https://api.rowifi.xyz/v3/guilds/${cfg.DISCORD_GUILD_ID}/members/${u.id}`, { headers: { Authorization: `Bot ${cfg.ROWIFI_API_KEY}` } });
       if (rw.data?.roblox_id) { u.roblox_id = rw.data.roblox_id; u.roblox_username = await noblox.getUsernameFromId(u.roblox_id); }
