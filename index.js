@@ -677,7 +677,7 @@ app.post("/api/game-ban", requireAuth, requireTeam, async (req, res) => {
   const access = await checkGameAccess(sessionRobloxId, parseInt(placeId), req.session.user.id);
   if (!access.ok) return res.status(403).json({ error: access.reason });
   try {
-    const banReason = reason || "Pixlands yönetimi tarafından yasaklandınız.";
+    const banReason = reason || (cfg.SITE_NAME||"Site")+" yönetimi tarafından yasaklandınız.";
     await ocDataStoreSet(parseInt(placeId), String(userId), banReason);
     // Kick at (tüm serverler duyar — MessagingService broadcast)
     await ocMessagingPublish(parseInt(placeId), "Kick", { userid: userId, reason: banReason });
@@ -964,6 +964,18 @@ app.post("/api/admin/games/add", requireAuth, requireFounder, async (req, res) =
   res.json({ ok: true });
 });
 
+// ── OYUN GÜNCELLE ──
+app.post("/api/admin/games/update", requireAuth, requireFounder, async (req, res) => {
+  const { placeId, minAdminRank } = req.body;
+  if (!placeId) return res.status(400).json({ error: "placeId gerekli." });
+  const games = await getGames();
+  const idx = games.findIndex(g => g.placeId === parseInt(placeId, 10));
+  if (idx === -1) return res.status(404).json({ error: "Oyun bulunamadı." });
+  games[idx].minAdminRank = parseInt(minAdminRank, 10) || 0;
+  await KV.findOneAndUpdate({ key: "site.games" }, { value: games }, { upsert: true });
+  res.json({ ok: true });
+});
+
 // ── OYUN SİL ──
 app.post("/api/admin/games/remove", requireAuth, requireFounder, async (req, res) => {
   const { placeId } = req.body;
@@ -998,6 +1010,19 @@ app.post("/api/admin/groups/add", requireAuth, requireFounder, async (req, res) 
   groups.push({ groupId: gid, webhook: webhook || "", minAdminRank: parseInt(minAdminRank, 10) || 0, name: groupName, icon });
   await KV.findOneAndUpdate({ key: "site.groups" }, { value: groups }, { upsert: true });
   res.json({ ok: true, groupName });
+});
+
+// ── GRUP GÜNCELLE ──
+app.post("/api/admin/groups/update", requireAuth, requireFounder, async (req, res) => {
+  const { groupId, minAdminRank, webhook } = req.body;
+  if (!groupId) return res.status(400).json({ error: "groupId gerekli." });
+  const groups = await getGroups();
+  const idx = groups.findIndex(g => g.groupId === parseInt(groupId, 10));
+  if (idx === -1) return res.status(404).json({ error: "Grup bulunamadı." });
+  groups[idx].minAdminRank = parseInt(minAdminRank, 10) || 0;
+  if (webhook !== undefined) groups[idx].webhook = webhook || "";
+  await KV.findOneAndUpdate({ key: "site.groups" }, { value: groups }, { upsert: true });
+  res.json({ ok: true });
 });
 
 // ── GRUP SİL ──
@@ -1084,16 +1109,29 @@ app.get("/api/stats", async (req, res) => {
 /* ── STATIC ── */
 const PUBLIC = path.join(__dirname, "public");
 app.use(express.static(PUBLIC));
-app.get("/",          (_, res) => res.sendFile(path.join(PUBLIC, "index.html")));
-app.get("/dashboard", (_, res) => res.sendFile(path.join(PUBLIC, "dashboard.html")));
-app.get("/manage",    (_, res) => res.sendFile(path.join(PUBLIC, "dashboard.html")));
-app.get("/profile",   (_, res) => res.sendFile(path.join(PUBLIC, "profile.html")));
-app.get("/terms",     (_, res) => res.sendFile(path.join(PUBLIC, "terms.html")));
-app.get("/privacy",   (_, res) => res.sendFile(path.join(PUBLIC, "privacy.html")));
+// Site adını HTML title'larına inject et
+function sendHTML(res, filename) {
+  const fs2 = require("fs");
+  const filePath = path.join(PUBLIC, filename);
+  let html = fs2.readFileSync(filePath, "utf8");
+  const siteName = cfg.SITE_NAME || "Site";
+  html = html.replace(/{{SITE}}/g, siteName);
+  res.setHeader("Content-Type", "text/html");
+  res.send(html);
+}
+app.get("/",          (_, res) => sendHTML(res, "index.html"));
+app.get("/dashboard", (_, res) => sendHTML(res, "dashboard.html"));
+app.get("/manage",    (_, res) => sendHTML(res, "dashboard.html"));
+app.get("/profile",   (_, res) => sendHTML(res, "profile.html"));
+app.get("/terms",     (_, res) => sendHTML(res, "terms.html"));
+app.get("/privacy",   (_, res) => sendHTML(res, "privacy.html"));
 
 /* ── 404 ── */
 app.use((req, res) => {
-  res.status(404).sendFile(path.join(PUBLIC, "404.html"));
+  const fs2 = require("fs");
+  let html404 = fs2.readFileSync(path.join(PUBLIC, "404.html"), "utf8");
+  html404 = html404.replace(/{{SITE}}/g, cfg.SITE_NAME || "Site");
+  res.status(404).setHeader("Content-Type", "text/html").send(html404);
 });
 
 const PORT = process.env.PORT || 8080;

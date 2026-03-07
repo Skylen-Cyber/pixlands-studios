@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Pixlands</title>
-  <link rel="icon" type="image/png" href="/pngs/pixlands.png"/>
+  <title>{{SITE}}</title>
+  <link rel="icon" type="image/png" href="/pngs/sitelogo.png"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -154,7 +154,7 @@
 <div id="lo"><div class="spin"></div><div id="lo-msg">Bu işlem biraz uzun sürebilir...</div></div>
 
 <div id="nb-wrap"><nav id="nb">
-  <a href="/" class="nbrand"><img src="/pngs/pixlands.png" id="nav-logo" alt=""/><span id="nav-name">Pixlands</span></a>
+  <a href="/" class="nbrand"><img src="/pngs/sitelogo.png" id="nav-logo" alt=""/><span id="nav-name">{{SITE}}</span></a>
   <div class="nlinks" id="nlinks">
     <a href="/" class="nlink">Ana Sayfa</a>
     <a href="/dashboard" class="nlink" id="nl-dash">Dashboard</a>
@@ -187,8 +187,8 @@
 
 <div id="corner-warn"></div>
 <footer>
-  <div class="fbrand"><img src="/pngs/pixlands.png" alt=""/><span id="fname">Pixlands</span></div>
-  <div class="fcopy" id="fcopy">© 2026 Pixlands — Tüm hakları saklıdır.</div>
+  <div class="fbrand"><img src="/pngs/sitelogo.png" alt=""/><span id="fname">{{SITE}}</span></div>
+  <div class="fcopy" id="fcopy">© 2026 {{SITE}} — Tüm hakları saklıdır.</div>
   <div class="footer-links">
     <a href="/terms" class="footer-link">Hizmet Şartları</a>
     <a href="/privacy" class="footer-link">Gizlilik Politikası</a>
@@ -201,7 +201,7 @@
 
 <script>
 let INVITE="/";
-let SITE_NAME="Pixlands";
+let SITE_NAME="";
 function av(id,h){return h?`https://cdn.discordapp.com/avatars/${id}/${h}.png?size=128`:`https://cdn.discordapp.com/embed/avatars/0.png`;}
 function toggleMob(){const m=document.getElementById("mob"),h=document.getElementById("nham");const o=m.classList.contains("open");m.classList.toggle("open",!o);h.classList.toggle("open",!o);}
 function closeMob(){document.getElementById("mob").classList.remove("open");document.getElementById("nham")?.classList.remove("open");}
@@ -317,7 +317,7 @@ async function adminRefresh(targetId){
 (async()=>{
   const loMsgTimer=setTimeout(()=>document.getElementById("lo-msg").classList.add("show"),5000);
   const cfgRes=await(await fetch("/api/config")).json();
-  const sn=cfgRes.siteName||"Pixlands";
+  const sn=cfgRes.siteName||"";
   SITE_NAME=sn;
   INVITE=cfgRes.guildInvite||"/";
   document.getElementById("nav-name").textContent=sn;
