@@ -229,8 +229,8 @@
       </div>
       <div class="ts-card" id="admin-card" style="display:none;border-color:rgba(168,85,247,.25);background:rgba(168,85,247,.05)" onclick="openAdmin()">
         <span class="ts-soon" style="background:rgba(168,85,247,.15);color:#c084fc">Kurucu</span>
-        <div class="ts-name">Site Yönetimi</div>
-        <div class="ts-desc">Ekip, oyun ve grup yönetimi.</div>
+        <div class="ts-name">Genel Yönetim</div>
+        <div class="ts-desc">Ekip, oyun, grup ve bot yönetimi.</div>
       </div>
     </div>
   </div>
@@ -266,6 +266,7 @@
       <button class="adm-tab act" onclick="admTab('team')" id="adm-tab-team">Ekip</button>
       <button class="adm-tab" onclick="admTab('games')" id="adm-tab-games">Oyunlar</button>
       <button class="adm-tab" onclick="admTab('groups')" id="adm-tab-groups">Gruplar</button>
+      <button class="adm-tab" onclick="admTab('botgroups')" id="adm-tab-botgroups">Bot Grupları</button>
     </div>
     <!-- Ekip -->
     <div id="adm-team" class="adm-section">
@@ -303,6 +304,25 @@
         <div class="field"><label>Webhook URL (opsiyonel)</label><input type="text" id="adm-gr-hook" placeholder="Discord webhook URL..."/></div>
         <div class="field"><label>Min Admin Rank</label><input type="number" id="adm-gr-rank" placeholder="0" value="0"/></div>
         <button class="sbtn" onclick="admAddGroup()">Ekle</button>
+      </div>
+    </div>
+    <!-- Bot Grupları -->
+    <div id="adm-botgroups" class="adm-section" style="display:none">
+      <div style="font-size:1rem;font-weight:800;color:#fff;margin-bottom:4px">Bot Grup Yönetimi</div>
+      <div style="font-size:.8rem;color:rgba(255,255,255,.35);margin-bottom:18px">Botun bulunduğu gruplar ve yeni gruba katılma.</div>
+
+      <!-- Botun bulunduğu gruplar -->
+      <div style="font-size:.8rem;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Botun Bulunduğu Gruplar</div>
+      <div id="adm-botgroups-list" style="margin-bottom:24px"></div>
+
+      <!-- Grup arama -->
+      <div class="fcard" style="padding:18px">
+        <div style="font-size:.8rem;font-weight:700;color:#4ade80;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px">Gruba Katıl</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input type="text" id="adm-bg-query" placeholder="Grup adı ara..." onkeydown="if(event.key==='Enter')admSearchGroup()" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:9px 12px;color:#fff;font-family:Inter,sans-serif;font-size:.85rem;outline:none"/>
+          <button onclick="admSearchGroup()" style="padding:9px 16px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.3);border-radius:8px;color:#60a5fa;font-size:.85rem;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap">Ara</button>
+        </div>
+        <div id="adm-bg-results"></div>
       </div>
     </div>
   </div>
@@ -496,6 +516,7 @@ async function admLoadAll(){
   await admLoadTeam();
   await admLoadGames();
   await admLoadGroups();
+  await admLoadBotGroups();
 }
 async function admLoadTeam(){
   const list=document.getElementById("adm-team-list");
@@ -589,6 +610,105 @@ async function admRemoveGroup(groupId,btn){
   const r=await(await fetch("/api/admin/groups/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupId})})).json();
   if(r.ok){showToast("Grup silindi.");admLoadGroups();}
   else{showToast(r.error||"Hata.",true);btn.disabled=false;}
+}
+
+// ── BOT GRUP YÖNETİMİ ──
+async function admLoadBotGroups(){
+  const list=document.getElementById("adm-botgroups-list");
+  if(!list)return;
+  list.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem">Yükleniyor...</div>';
+  try{
+    const d=await(await fetch("/api/admin/bot-groups")).json();
+    list.innerHTML="";
+    if(!d.groups||!d.groups.length){
+      list.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem;padding:8px 0">Bot henüz hiçbir gruba üye değil.</div>';
+      return;
+    }
+    d.groups.forEach(function(g){
+      const el=document.createElement("div");
+      el.className="adm-item";
+      el.style.cssText="align-items:center;gap:12px;";
+      const icon=g.icon?`<img src="${g.icon}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.display='none'"/>`
+        :`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
+      el.innerHTML=`
+        ${icon}
+        <div class="adm-item-info" style="flex:1;min-width:0">
+          <div class="adm-item-name" style="font-size:.9rem">${g.name}</div>
+          <div class="adm-item-sub">${g.memberCount.toLocaleString()} üye • Botun rütbesi: <span style="color:#60a5fa;font-weight:700">${g.role}</span></div>
+        </div>
+        <button onclick="admBotLeaveGroup(${g.id},'${g.name.replace(/'/g,"\'")}',this)" style="padding:6px 14px;border-radius:8px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#f87171;font-size:.78rem;font-weight:700;cursor:pointer;flex-shrink:0;font-family:Inter,sans-serif;white-space:nowrap;transition:background .15s" onmouseenter="this.style.background='rgba(248,113,113,.2)'" onmouseleave="this.style.background='rgba(248,113,113,.1)'">
+          Gruptan Çık
+        </button>`;
+      list.appendChild(el);
+    });
+  }catch(e){list.innerHTML='<div style="color:#f87171;font-size:.83rem">Yüklenemedi.</div>';}
+}
+
+async function admBotLeaveGroup(groupId, groupName, btn){
+  if(!confirm(`"${groupName}" grubundan çıkmak istediğinize emin misiniz?
+
+Bot bu gruptan ayrılacak, geri alınamaz!`))return;
+  btn.disabled=true;btn.textContent="Çıkılıyor...";
+  try{
+    const r=await(await fetch("/api/admin/bot-leave-group",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupId})})).json();
+    if(r.ok){showToast(`"${groupName}" grubundan çıkıldı.`);admLoadBotGroups();}
+    else{showToast(r.error||"Çıkış başarısız.",true);btn.disabled=false;btn.textContent="Gruptan Çık";}
+  }catch(e){showToast("Sunucuya bağlanılamadı.",true);btn.disabled=false;btn.textContent="Gruptan Çık";}
+}
+
+async function admSearchGroup(){
+  const q=document.getElementById("adm-bg-query").value.trim();
+  if(!q){showToast("Grup adı girin.",true);return;}
+  const res=document.getElementById("adm-bg-results");
+  res.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem;padding:8px 0">Aranıyor...</div>';
+  try{
+    const d=await(await fetch("/api/admin/search-group?q="+encodeURIComponent(q))).json();
+    res.innerHTML="";
+    if(!d.groups||!d.groups.length){
+      res.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem;padding:8px 0">Sonuç bulunamadı.</div>';
+      return;
+    }
+    d.groups.forEach(function(g){
+      const el=document.createElement("div");
+      el.className="adm-item";
+      el.style.cssText="cursor:pointer;transition:background .15s;margin-bottom:8px;";
+      const icon=g.icon?`<img src="${g.icon}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.display='none'"/>`
+        :`<div style="width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
+      const openLabel=g.publicEntryAllowed
+        ?'<span style="color:#4ade80;font-size:.7rem;font-weight:700">● Herkese Açık</span>'
+        :'<span style="color:#f87171;font-size:.7rem;font-weight:700">● Kapalı</span>';
+      el.innerHTML=`
+        ${icon}
+        <div class="adm-item-info" style="flex:1;min-width:0">
+          <div class="adm-item-name" style="font-size:.88rem">${g.name}</div>
+          <div class="adm-item-sub" style="margin-top:3px">${g.memberCount.toLocaleString()} üye • Sahip: ${g.owner} ${openLabel}</div>
+          ${g.description?`<div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.description.slice(0,80)}${g.description.length>80?"...":""}</div>`:""}
+        </div>
+        ${g.publicEntryAllowed
+          ?`<button onclick="admBotJoinGroup(${g.id},'${g.name.replace(/'/g,"\'")}',this)" style="padding:6px 14px;border-radius:8px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);color:#4ade80;font-size:.78rem;font-weight:700;cursor:pointer;flex-shrink:0;font-family:Inter,sans-serif;white-space:nowrap;transition:background .15s" onmouseenter="this.style.background='rgba(74,222,128,.2)'" onmouseleave="this.style.background='rgba(74,222,128,.1)'">Gruba Katıl</button>`
+          :`<span style="font-size:.72rem;color:rgba(255,255,255,.25);flex-shrink:0">Katılamaz</span>`
+        }`;
+      res.appendChild(el);
+    });
+  }catch(e){res.innerHTML='<div style="color:#f87171;font-size:.83rem">Arama başarısız.</div>';}
+}
+
+async function admBotJoinGroup(groupId, groupName, btn){
+  btn.disabled=true;btn.textContent="Katılıyor...";
+  try{
+    const r=await(await fetch("/api/admin/bot-join-group",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupId})})).json();
+    if(r.ok){
+      showToast(`"${groupName}" grubuna katılındı!`);
+      btn.textContent="✓ Katılındı";
+      btn.style.background="rgba(74,222,128,.15)";
+      btn.style.borderColor="rgba(74,222,128,.4)";
+      // Botun gruplarını yenile
+      admLoadBotGroups();
+    } else {
+      showToast(r.error||"Katılma başarısız.",true);
+      btn.disabled=false;btn.textContent="Gruba Katıl";
+    }
+  }catch(e){showToast("Sunucuya bağlanılamadı.",true);btn.disabled=false;btn.textContent="Gruba Katıl";}
 }
 
 function backFromGame(){

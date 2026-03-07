@@ -996,6 +996,101 @@ app.post("/api/admin/groups/remove", requireAuth, requireFounder, async (req, re
 });
 
 /* ════════════════════════════════════════
+   BOT GRUP YÖNETİMİ
+════════════════════════════════════════ */
+
+// ── BOTUN BULUNDUĞU GRUPLAR ──
+app.get("/api/admin/bot-groups", requireAuth, requireFounder, async (req, res) => {
+  try {
+    if (!BOT_ID) return res.status(500).json({ error: "Bot ID alınamadı." });
+    const groups = await noblox.getGroups(BOT_ID);
+    const result = await Promise.all((groups || []).map(async (g) => {
+      let icon = "";
+      try {
+        const thumbs = await noblox.getThumbnails([{ type: "GroupIcon", targetId: g.Id, size: "420x420" }]);
+        icon = thumbs[0]?.imageUrl || "";
+      } catch(e) {}
+      return {
+        id: g.Id,
+        name: g.Name,
+        role: g.Role,
+        rank: g.Rank,
+        memberCount: g.MemberCount || 0,
+        icon
+      };
+    }));
+    res.json({ groups: result });
+  } catch(e) {
+    console.error("[bot-groups] HATA:", e.message);
+    res.status(500).json({ error: "Gruplar alınamadı: " + e.message });
+  }
+});
+
+// ── GRUP ARA (roblox'ta) ──
+app.get("/api/admin/search-group", requireAuth, requireFounder, async (req, res) => {
+  const q = req.query.q;
+  if (!q) return res.status(400).json({ error: "Arama terimi gerekli." });
+  try {
+    const r = await axios.get(`https://groups.roblox.com/v1/groups/search?keyword=${encodeURIComponent(q)}&limit=10`);
+    const groups = (r.data?.data || []).map(g => ({
+      id: g.id,
+      name: g.name,
+      description: g.description || "",
+      memberCount: g.memberCount || 0,
+      publicEntryAllowed: g.publicEntryAllowed,
+      owner: g.owner?.username || "?"
+    }));
+    // Her grup için ikon al
+    const withIcons = await Promise.all(groups.map(async (g) => {
+      try {
+        const thumbs = await noblox.getThumbnails([{ type: "GroupIcon", targetId: g.id, size: "420x420" }]);
+        g.icon = thumbs[0]?.imageUrl || "";
+      } catch(e) { g.icon = ""; }
+      return g;
+    }));
+    res.json({ groups: withIcons });
+  } catch(e) {
+    res.status(500).json({ error: "Arama başarısız: " + e.message });
+  }
+});
+
+// ── BOTA GRUP KATIL ──
+app.post("/api/admin/bot-join-group", requireAuth, requireFounder, async (req, res) => {
+  const { groupId } = req.body;
+  if (!groupId) return res.status(400).json({ error: "groupId gerekli." });
+  const gid = parseInt(groupId, 10);
+  try {
+    // Önce grubun public entry'e izin verip vermediğini kontrol et
+    const info = await axios.get(`https://groups.roblox.com/v1/groups/${gid}`);
+    if (!info.data?.publicEntryAllowed) {
+      return res.status(400).json({ error: "Bu grup herkese açık değil, bot katılamaz." });
+    }
+    await noblox.joinGroup(gid);
+    console.log(`[bot-join-group] groupId=${gid}`);
+    res.json({ ok: true });
+  } catch(e) {
+    const msg = e.message || "";
+    if (msg.includes("already")) return res.status(400).json({ error: "Bot zaten bu grupta." });
+    if (msg.includes("captcha") || msg.includes("CAPTCHA")) return res.status(400).json({ error: "Captcha engeli — bot bu gruba katılamıyor." });
+    res.status(500).json({ error: "Katılma başarısız: " + msg });
+  }
+});
+
+// ── BOTTAN GRUP AYRIL ──
+app.post("/api/admin/bot-leave-group", requireAuth, requireFounder, async (req, res) => {
+  const { groupId } = req.body;
+  if (!groupId) return res.status(400).json({ error: "groupId gerekli." });
+  const gid = parseInt(groupId, 10);
+  try {
+    await noblox.leaveGroup(gid);
+    console.log(`[bot-leave-group] groupId=${gid}`);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: "Çıkış başarısız: " + e.message });
+  }
+});
+
+/* ════════════════════════════════════════
    İSTATİSTİKLER
 ════════════════════════════════════════ */
 app.get("/api/stats", async (req, res) => {
