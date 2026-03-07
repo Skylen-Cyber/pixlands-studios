@@ -944,12 +944,22 @@ app.get("/api/admin/games", requireAuth, requireFounder, async (req, res) => {
 
 // ── OYUN EKLE ──
 app.post("/api/admin/games/add", requireAuth, requireFounder, async (req, res) => {
-  const { placeId, name, openCloudApiKey, minAdminRank } = req.body;
+  const { placeId, name, openCloudApiKey, minAdminRank, groupId } = req.body;
   if (!placeId || !name) return res.status(400).json({ error: "placeId ve name gerekli." });
   const games = await getGames();
   const pid = parseInt(placeId, 10);
   if (games.some(g => g.placeId === pid)) return res.status(400).json({ error: "Bu oyun zaten ekli." });
-  games.push({ placeId: pid, name, openCloudApiKey: openCloudApiKey || "", minAdminRank: parseInt(minAdminRank, 10) || 0 });
+  // Oyun ikonunu Roblox'tan çek
+  let icon = "";
+  try {
+    const uRes = await axios.get(`https://apis.roblox.com/universes/v1/places/${pid}/universe`);
+    const universeId = uRes.data?.universeId;
+    if (universeId) {
+      const thumbRes = await axios.get(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${universeId}&size=512x512&format=Png`);
+      icon = thumbRes.data?.data?.[0]?.imageUrl || "";
+    }
+  } catch(e) {}
+  games.push({ placeId: pid, name, openCloudApiKey: openCloudApiKey || "", minAdminRank: parseInt(minAdminRank, 10) || 0, groupId: groupId ? parseInt(groupId, 10) : null, icon });
   await KV.findOneAndUpdate({ key: "site.games" }, { value: games }, { upsert: true });
   res.json({ ok: true });
 });
@@ -977,10 +987,15 @@ app.post("/api/admin/groups/add", requireAuth, requireFounder, async (req, res) 
   const groups = await getGroups();
   const gid = parseInt(groupId, 10);
   if (groups.some(g => g.groupId === gid)) return res.status(400).json({ error: "Bu grup zaten ekli." });
-  // Grup adını doğrula
   let groupName = `Grup ${gid}`;
-  try { const info = await noblox.getGroup(gid); groupName = info.name; } catch(e) { return res.status(400).json({ error: "Grup bulunamadı. groupId'yi kontrol edin." }); }
-  groups.push({ groupId: gid, webhook: webhook || "", minAdminRank: parseInt(minAdminRank, 10) || 0 });
+  let icon = "";
+  try {
+    const info = await noblox.getGroup(gid);
+    groupName = info.name;
+    const thumbs = await noblox.getThumbnails([{ type: "GroupIcon", targetId: gid, size: "420x420" }]);
+    icon = thumbs[0]?.imageUrl || "";
+  } catch(e) { return res.status(400).json({ error: "Grup bulunamadı." }); }
+  groups.push({ groupId: gid, webhook: webhook || "", minAdminRank: parseInt(minAdminRank, 10) || 0, name: groupName, icon });
   await KV.findOneAndUpdate({ key: "site.groups" }, { value: groups }, { upsert: true });
   res.json({ ok: true, groupName });
 });
@@ -999,16 +1014,25 @@ app.post("/api/admin/groups/remove", requireAuth, requireFounder, async (req, re
    BOT GRUP YÖNETİMİ
 ════════════════════════════════════════ */
 
-// ── BOTUN BULUNDUĞU GRUPLAR ──
+// ── BOTUN BULUNDUĞU GRUPLAR (+ botun altındaki rütbeler) ──
 app.get("/api/admin/bot-groups", requireAuth, requireFounder, async (req, res) => {
   try {
     if (!BOT_ID) return res.status(500).json({ error: "Bot ID alınamadı." });
     const groups = await noblox.getGroups(BOT_ID);
     const result = await Promise.all((groups || []).map(async (g) => {
       let icon = "";
+      let ranksBelow = []; // botun rütbesinin altındaki rütbeler
       try {
         const thumbs = await noblox.getThumbnails([{ type: "GroupIcon", targetId: g.Id, size: "420x420" }]);
         icon = thumbs[0]?.imageUrl || "";
+      } catch(e) {}
+      try {
+        const allRoles = await noblox.getRoles(g.Id);
+        const botRank = g.Rank;
+        ranksBelow = allRoles
+          .filter(r => r.rank > 0 && r.rank < botRank)
+          .sort((a, b) => a.rank - b.rank)
+          .map(r => ({ id: r.id, name: r.name, rank: r.rank }));
       } catch(e) {}
       return {
         id: g.Id,
@@ -1016,7 +1040,8 @@ app.get("/api/admin/bot-groups", requireAuth, requireFounder, async (req, res) =
         role: g.Role,
         rank: g.Rank,
         memberCount: g.MemberCount || 0,
-        icon
+        icon,
+        ranksBelow
       };
     }));
     res.json({ groups: result });
