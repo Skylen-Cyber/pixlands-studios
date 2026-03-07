@@ -290,7 +290,18 @@
         <div class="field"><label>Place ID</label><input type="text" id="adm-g-pid" placeholder="Roblox Place ID..."/></div>
         <div class="field"><label>Oyun Adı</label><input type="text" id="adm-g-name" placeholder="Oyun adı..."/></div>
         <div class="field"><label>Open Cloud API Key</label><input type="text" id="adm-g-key" placeholder="API Key..."/></div>
-        <div class="field"><label>Min Admin Rank</label><input type="number" id="adm-g-rank" placeholder="0" value="0"/></div>
+        <div class="field">
+          <label>Grup Seç <span style="color:rgba(255,255,255,.3);font-weight:400">(botun üyesi olduğu gruplar)</span></label>
+          <select id="adm-g-group" onchange="admGameGroupChange()" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:9px 12px;color:#fff;font-family:Inter,sans-serif;font-size:.85rem;outline:none;cursor:pointer">
+            <option value="">Grup seç...</option>
+          </select>
+        </div>
+        <div class="field" id="adm-g-rank-field" style="display:none">
+          <label>Min Admin Rank</label>
+          <select id="adm-g-rank" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:9px 12px;color:#fff;font-family:Inter,sans-serif;font-size:.85rem;outline:none;cursor:pointer">
+            <option value="0">Rütbe seç...</option>
+          </select>
+        </div>
         <button class="sbtn" onclick="admAddGame()">Ekle</button>
       </div>
     </div>
@@ -300,9 +311,19 @@
       <div id="adm-groups-list" style="margin-bottom:16px"></div>
       <div class="fcard" style="padding:18px">
         <div style="font-size:.8rem;font-weight:700;color:#c084fc;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px">Grup Ekle</div>
-        <div class="field"><label>Group ID</label><input type="text" id="adm-gr-gid" placeholder="Roblox Group ID..."/></div>
+        <div class="field">
+          <label>Grup Seç <span style="color:rgba(255,255,255,.3);font-weight:400">(botun üyesi olduğu gruplar)</span></label>
+          <select id="adm-gr-gid" onchange="admGroupGroupChange()" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:9px 12px;color:#fff;font-family:Inter,sans-serif;font-size:.85rem;outline:none;cursor:pointer">
+            <option value="">Grup seç...</option>
+          </select>
+        </div>
         <div class="field"><label>Webhook URL (opsiyonel)</label><input type="text" id="adm-gr-hook" placeholder="Discord webhook URL..."/></div>
-        <div class="field"><label>Min Admin Rank</label><input type="number" id="adm-gr-rank" placeholder="0" value="0"/></div>
+        <div class="field" id="adm-gr-rank-field" style="display:none">
+          <label>Min Admin Rank</label>
+          <select id="adm-gr-rank" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:9px 12px;color:#fff;font-family:Inter,sans-serif;font-size:.85rem;outline:none;cursor:pointer">
+            <option value="0">Rütbe seç...</option>
+          </select>
+        </div>
         <button class="sbtn" onclick="admAddGroup()">Ekle</button>
       </div>
     </div>
@@ -509,6 +530,11 @@ async function admLoadAll(){
   await admLoadGames();
   await admLoadGroups();
   await admLoadBotGroups();
+  // Dropdown'ları doldur (cache temizle ki taze gelsin)
+  _botGroupsCache=null;
+  await _loadBotGroupsCache();
+  _fillGroupDropdown("adm-g-group");
+  _fillGroupDropdown("adm-gr-gid");
 }
 async function admLoadTeam(){
   const list=document.getElementById("adm-team-list");
@@ -534,7 +560,9 @@ async function admLoadGames(){
     if(!d.games||!d.games.length){list.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem;padding:8px 0">Oyun yok.</div>';return;}
     d.games.forEach(function(g){
       const el=document.createElement("div");el.className="adm-item";
-      el.innerHTML=`<div class="adm-item-info"><div class="adm-item-name">${g.name}</div><div class="adm-item-sub">PlaceID: ${g.placeId} • Min Rank: ${g.minAdminRank||0}</div></div><button class="adm-del" onclick="admRemoveGame(${g.placeId},this)">Sil</button>`;
+      const icon=g.icon?`<img src="${g.icon}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.display='none'"/>`:`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
+      const link=`<a href="https://www.roblox.com/games/${g.placeId}" target="_blank" style="font-size:.72rem;color:#60a5fa;text-decoration:none;flex-shrink:0;padding:4px 8px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);border-radius:6px;white-space:nowrap">Roblox ↗</a>`;
+      el.innerHTML=`${icon}<div class="adm-item-info"><div class="adm-item-name">${g.name}</div><div class="adm-item-sub">PlaceID: ${g.placeId} • Min Rank: ${g.minAdminRank||0}</div></div>${link}<button class="adm-del" onclick="admRemoveGame(${g.placeId},this)">Sil</button>`;
       list.appendChild(el);
     });
   }catch(e){list.innerHTML='<div style="color:#f87171;font-size:.83rem">Yüklenemedi.</div>';}
@@ -548,7 +576,10 @@ async function admLoadGroups(){
     if(!d.groups||!d.groups.length){list.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.83rem;padding:8px 0">Grup yok.</div>';return;}
     d.groups.forEach(function(g){
       const el=document.createElement("div");el.className="adm-item";
-      el.innerHTML=`<div class="adm-item-info"><div class="adm-item-name">Grup ${g.groupId}</div><div class="adm-item-sub">Min Rank: ${g.minAdminRank||0}${g.webhook?" • Webhook var":""}</div></div><button class="adm-del" onclick="admRemoveGroup(${g.groupId},this)">Sil</button>`;
+      const icon=g.icon?`<img src="${g.icon}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)" onerror="this.style.display='none'"/>`:`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0"></div>`;
+      const link=`<a href="https://www.roblox.com/groups/${g.groupId}" target="_blank" style="font-size:.72rem;color:#60a5fa;text-decoration:none;flex-shrink:0;padding:4px 8px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);border-radius:6px;white-space:nowrap">Roblox ↗</a>`;
+      const name=g.name||`Grup ${g.groupId}`;
+      el.innerHTML=`${icon}<div class="adm-item-info"><div class="adm-item-name">${name}</div><div class="adm-item-sub">Min Rank: ${g.minAdminRank||0}${g.webhook?" • Webhook var":""}</div></div>${link}<button class="adm-del" onclick="admRemoveGroup(${g.groupId},this)">Sil</button>`;
       list.appendChild(el);
     });
   }catch(e){list.innerHTML='<div style="color:#f87171;font-size:.83rem">Yüklenemedi.</div>';}
@@ -570,14 +601,79 @@ async function admRemoveTeam(discordId,btn){
   if(r.ok){showToast("Üye silindi.");admLoadTeam();}
   else{showToast(r.error||"Hata.",true);btn.disabled=false;}
 }
+// bot gruplarını dropdown'lara doldur
+let _botGroupsCache=null;
+async function _loadBotGroupsCache(){
+  if(_botGroupsCache)return _botGroupsCache;
+  try{const d=await(await fetch("/api/admin/bot-groups")).json();_botGroupsCache=d.groups||[];}catch(e){_botGroupsCache=[];}
+  return _botGroupsCache;
+}
+async function _fillGroupDropdown(selectId){
+  const sel=document.getElementById(selectId);
+  if(!sel)return;
+  sel.innerHTML='<option value="">Yükleniyor...</option>';
+  const groups=await _loadBotGroupsCache();
+  sel.innerHTML='<option value="">Grup seç...</option>';
+  groups.forEach(function(g){
+    const opt=document.createElement("option");
+    opt.value=g.id;
+    opt.textContent=g.name;
+    opt.dataset.ranks=JSON.stringify(g.ranksBelow||[]);
+    sel.appendChild(opt);
+  });
+}
+function _fillRankDropdown(selectId, fieldId, ranks){
+  const field=document.getElementById(fieldId);
+  const sel=document.getElementById(selectId);
+  if(!sel||!field)return;
+  if(!ranks||!ranks.length){
+    field.style.display="none";
+    return;
+  }
+  field.style.display="";
+  sel.innerHTML='<option value="0">Yok (herkes)</option>';
+  ranks.forEach(function(r){
+    const opt=document.createElement("option");
+    opt.value=r.rank;
+    opt.textContent=`${r.name} (${r.rank})`;
+    sel.appendChild(opt);
+  });
+}
+async function admGameGroupChange(){
+  const sel=document.getElementById("adm-g-group");
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){document.getElementById("adm-g-rank-field").style.display="none";return;}
+  const ranks=JSON.parse(opt.dataset.ranks||"[]");
+  if(!ranks.length){
+    document.getElementById("adm-g-rank-field").style.display="none";
+    showToast("Bot bu grupta en düşük rütbede, rütbe seçilemiyor.",true);
+    return;
+  }
+  _fillRankDropdown("adm-g-rank","adm-g-rank-field",ranks);
+}
+async function admGroupGroupChange(){
+  const sel=document.getElementById("adm-gr-gid");
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){document.getElementById("adm-gr-rank-field").style.display="none";return;}
+  const ranks=JSON.parse(opt.dataset.ranks||"[]");
+  if(!ranks.length){
+    document.getElementById("adm-gr-rank-field").style.display="none";
+    showToast("Bot bu grupta en düşük rütbede, rütbe seçilemiyor.",true);
+    return;
+  }
+  _fillRankDropdown("adm-gr-rank","adm-gr-rank-field",ranks);
+}
 async function admAddGame(){
   const pid=document.getElementById("adm-g-pid").value.trim();
   const name=document.getElementById("adm-g-name").value.trim();
   const key=document.getElementById("adm-g-key").value.trim();
-  const rank=document.getElementById("adm-g-rank").value.trim();
+  const groupSel=document.getElementById("adm-g-group");
+  const groupId=groupSel?groupSel.value:"";
+  const rankSel=document.getElementById("adm-g-rank");
+  const rank=rankSel&&document.getElementById("adm-g-rank-field").style.display!=="none"?rankSel.value:"0";
   if(!pid||!name){showToast("Place ID ve oyun adı zorunlu.",true);return;}
-  const r=await(await fetch("/api/admin/games/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId:pid,name,openCloudApiKey:key||"",minAdminRank:rank||0})})).json();
-  if(r.ok){showToast("Oyun eklendi.");["adm-g-pid","adm-g-name","adm-g-key"].forEach(id=>document.getElementById(id).value="");document.getElementById("adm-g-rank").value="0";admLoadGames();}
+  const r=await(await fetch("/api/admin/games/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId:pid,name,openCloudApiKey:key||"",minAdminRank:parseInt(rank)||0,groupId:groupId||null})})).json();
+  if(r.ok){showToast("Oyun eklendi.");["adm-g-pid","adm-g-name","adm-g-key"].forEach(id=>document.getElementById(id).value="");groupSel.value="";document.getElementById("adm-g-rank-field").style.display="none";admLoadGames();}
   else showToast(r.error||"Hata.",true);
 }
 async function admRemoveGame(placeId,btn){
@@ -588,12 +684,14 @@ async function admRemoveGame(placeId,btn){
   else{showToast(r.error||"Hata.",true);btn.disabled=false;}
 }
 async function admAddGroup(){
-  const gid=document.getElementById("adm-gr-gid").value.trim();
+  const gidSel=document.getElementById("adm-gr-gid");
+  const gid=gidSel?gidSel.value.trim():"";
   const hook=document.getElementById("adm-gr-hook").value.trim();
-  const rank=document.getElementById("adm-gr-rank").value.trim();
-  if(!gid){showToast("Group ID zorunlu.",true);return;}
-  const r=await(await fetch("/api/admin/groups/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupId:gid,webhook:hook||"",minAdminRank:rank||0})})).json();
-  if(r.ok){showToast("Grup eklendi: "+(r.groupName||""));["adm-gr-gid","adm-gr-hook"].forEach(id=>document.getElementById(id).value="");document.getElementById("adm-gr-rank").value="0";admLoadGroups();}
+  const rankSel=document.getElementById("adm-gr-rank");
+  const rank=rankSel&&document.getElementById("adm-gr-rank-field").style.display!=="none"?rankSel.value:"0";
+  if(!gid){showToast("Grup seçilmedi.",true);return;}
+  const r=await(await fetch("/api/admin/groups/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groupId:gid,webhook:hook||"",minAdminRank:parseInt(rank)||0})})).json();
+  if(r.ok){showToast("Grup eklendi: "+(r.groupName||""));gidSel.value="";document.getElementById("adm-gr-hook").value="";document.getElementById("adm-gr-rank-field").style.display="none";_botGroupsCache=null;admLoadGroups();}
   else showToast(r.error||"Hata.",true);
 }
 async function admRemoveGroup(groupId,btn){
@@ -625,9 +723,10 @@ async function admLoadBotGroups(){
       el.innerHTML=`
         ${icon}
         <div class="adm-item-info" style="flex:1;min-width:0">
-          <div class="adm-item-name" style="font-size:.9rem">${g.name}</div>
-          <div class="adm-item-sub">${g.memberCount.toLocaleString()} üye • Botun rütbesi: <span style="color:#60a5fa;font-weight:700">${g.role}</span></div>
+          <div class="adm-item-name" style="font-size:.9rem">Bot</div>
+          <div class="adm-item-sub">${g.name} • ${g.memberCount.toLocaleString()} üye • Rütbe: <span style="color:#60a5fa;font-weight:700">${g.role}</span></div>
         </div>
+        <a href="https://www.roblox.com/groups/${g.id}" target="_blank" style="font-size:.72rem;color:#60a5fa;text-decoration:none;flex-shrink:0;padding:4px 8px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);border-radius:6px;white-space:nowrap">Roblox ↗</a>
         <button onclick="admBotLeaveGroup(${g.id},'${g.name.replace(/'/g,"\'")}',this)" style="padding:6px 14px;border-radius:8px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#f87171;font-size:.78rem;font-weight:700;cursor:pointer;flex-shrink:0;font-family:Inter,sans-serif;white-space:nowrap;transition:background .15s" onmouseenter="this.style.background='rgba(248,113,113,.2)'" onmouseleave="this.style.background='rgba(248,113,113,.1)'">
           Gruptan Çık
         </button>`;
