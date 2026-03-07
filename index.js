@@ -1031,16 +1031,43 @@ app.get("/api/admin/search-group", requireAuth, requireFounder, async (req, res)
   const q = req.query.q;
   if (!q) return res.status(400).json({ error: "Arama terimi gerekli." });
   try {
+    // 1. Önce tam isim eşleşmesi dene (lookup by name)
+    let exactMatch = null;
+    try {
+      const exactRes = await axios.get(`https://groups.roblox.com/v1/groups/search?keyword=${encodeURIComponent(q)}&limit=10&prioritizeExactMatch=true`);
+      const exactData = exactRes.data?.data || [];
+      // Tam eşleşme: isim birebir aynıysa (case-insensitive)
+      const found = exactData.find(g => g.name.toLowerCase() === q.toLowerCase());
+      if (found) exactMatch = found;
+    } catch(e) {}
+
+    // 2. Genel arama
     const r = await axios.get(`https://groups.roblox.com/v1/groups/search?keyword=${encodeURIComponent(q)}&limit=10`);
-    const groups = (r.data?.data || []).map(g => ({
+    let groups = (r.data?.data || []).map(g => ({
       id: g.id,
       name: g.name,
       description: g.description || "",
       memberCount: g.memberCount || 0,
       publicEntryAllowed: g.publicEntryAllowed,
-      owner: g.owner?.username || "?"
+      owner: g.owner?.username || "?",
+      exact: g.name.toLowerCase() === q.toLowerCase()
     }));
-    // Her grup için ikon al
+
+    // Tam eşleşen varsa en üste taşı, duplikatı kaldır
+    if (exactMatch) {
+      groups = groups.filter(g => g.id !== exactMatch.id);
+      groups.unshift({
+        id: exactMatch.id,
+        name: exactMatch.name,
+        description: exactMatch.description || "",
+        memberCount: exactMatch.memberCount || 0,
+        publicEntryAllowed: exactMatch.publicEntryAllowed,
+        owner: exactMatch.owner?.username || "?",
+        exact: true
+      });
+    }
+
+    // 3. Her grup için ikon al
     const withIcons = await Promise.all(groups.map(async (g) => {
       try {
         const thumbs = await noblox.getThumbnails([{ type: "GroupIcon", targetId: g.id, size: "420x420" }]);
@@ -1048,6 +1075,7 @@ app.get("/api/admin/search-group", requireAuth, requireFounder, async (req, res)
       } catch(e) { g.icon = ""; }
       return g;
     }));
+
     res.json({ groups: withIcons });
   } catch(e) {
     res.status(500).json({ error: "Arama başarısız: " + e.message });
