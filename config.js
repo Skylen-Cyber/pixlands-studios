@@ -14,21 +14,6 @@ module.exports = {
 
   ROWIFI_API_KEY: process.env.ROWIFI_API_KEY,
 
-  TEAM: [
-    { sira: 1, tur: "Kurucu & Geliştirici", discordId: "1048511624606130287", description: "Pixlands sahibidir. Pixlands'a bağlı oyunları geliştirir." },
-    { sira: 2, tur: "Geliştirici",          discordId: "1454747716088234024", description: "Pixlands site geliştiricisidir." },
-    { sira: 3, tur: "Baş Moderatör",        discordId: "1124748161882279976", description: "Pixlands baş moderatörüdür." },
-  ],
-
-  GROUPS: [
-    { groupId: 35205695, webhook: process.env.GROUP1_WEBHOOK, minAdminRank: 50 },
-  ],
-
-  GAMES: [
-    { placeId: 117655204202868, name: "OpenCloud Test", openCloudApiKey: process.env.GAME1_API_KEY },
-  ],
-
   SESSION_SECRET: process.env.SESSION_SECRET || "fallback-secret",
-
   OC_SECRET: process.env.OC_SECRET,
 };
