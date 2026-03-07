@@ -1127,7 +1127,6 @@ app.get("/api/stats", async (req, res) => {
 
 /* ── STATIC ── */
 const PUBLIC = path.join(__dirname, "public");
-app.use(express.static(PUBLIC));
 // Site adını HTML'e inject et (title + tüm placeholder'lar)
 const fs2 = require("fs");
 function sendHTML(res, filename) {
@@ -1146,6 +1145,9 @@ app.get("/manage",    (_, res) => sendHTML(res, "dashboard.html"));
 app.get("/profile",   (_, res) => sendHTML(res, "profile.html"));
 app.get("/terms",     (_, res) => sendHTML(res, "terms.html"));
 app.get("/privacy",   (_, res) => sendHTML(res, "privacy.html"));
+
+// Static assets (JS değil — sadece pngs, css gibi dosyalar)
+app.use(express.static(PUBLIC));
 
 /* ── 404 ── */
 app.use((req, res) => {
