@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Pixlands — Dashboard</title>
+  <link rel="icon" type="image/png" href="/pngs/pixlands.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#0a0f1e;color:#fff;font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+    .bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+    .bg-blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.35;animation:blobmove 14s ease-in-out infinite alternate;}
+    .bg-blob-1{width:500px;height:500px;background:radial-gradient(circle,#1e40af,transparent 70%);top:-10%;left:-10%;animation-delay:0s;}
+    .bg-blob-2{width:400px;height:400px;background:radial-gradient(circle,#1d4ed8,transparent 70%);bottom:-10%;right:-10%;animation-delay:-5s;}
+    @keyframes blobmove{0%{transform:scale(1) translate(0,0);}100%{transform:scale(1.12) translate(15px,-15px);}}
+    #lo{position:fixed;inset:0;z-index:8000;background:#0a0f1e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .3s;}
+    #lo.out{opacity:0;pointer-events:none;display:none;}
+    .spin{width:34px;height:34px;border:3px solid rgba(96,165,250,.2);border-top:3px solid #60a5fa;border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    #lo-msg{font-size:.82rem;color:rgba(255,255,255,.35);font-weight:500;opacity:0;transition:opacity .5s;text-align:center;padding:0 20px;}
+    #lo-msg.show{opacity:1;}
+    @keyframes pulse-dot{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.4);opacity:.7;}}
+    #nb-wrap{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;justify-content:center;padding:14px 20px 0;pointer-events:none;}
+    #nb{pointer-events:all;display:flex;align-items:center;justify-content:space-between;padding:0 18px 0 14px;height:52px;background:rgba(10,15,30,.28);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:1px solid rgba(255,255,255,.12);border-radius:16px;width:100%;max-width:860px;gap:8px;box-shadow:0 4px 32px rgba(0,0,0,.2);}
+    .nbrand{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;}
+    .nbrand img{width:28px;height:28px;object-fit:contain;border-radius:7px;}
+    .nbrand span{font-size:.98rem;font-weight:800;color:#fff;letter-spacing:-.2px;}
+    .nlinks{display:flex;align-items:center;gap:1px;}
+    .nlink{color:rgba(255,255,255,.55);font-size:.83rem;font-weight:500;text-decoration:none;padding:5px 11px;border-radius:7px;transition:color .15s,background .15s;white-space:nowrap;}
+    .nlink:hover{color:#fff;background:rgba(255,255,255,.08);}
+    .nlink.act{color:#60a5fa;font-weight:700;}
+    .nright{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+    .nbtn-blue{display:inline-flex;align-items:center;gap:6px;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:.82rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .15s;}
+    .nbtn-blue:hover{background:#1d4ed8;}
+    .npill{display:flex;align-items:center;gap:6px;text-decoration:none;border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:2px 11px 2px 2px;transition:background .15s;background:rgba(255,255,255,.05);}
+    .npill:hover{background:rgba(255,255,255,.12);}
+    .npill img{width:24px;height:24px;border-radius:50%;object-fit:cover;}
+    .npill span{font-size:.8rem;font-weight:600;color:#fff;}
+    .npill-wrap{position:relative;display:inline-flex;}
+    .warn-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;animation:pulse-dot 1.8s ease-in-out infinite;}
+    .npill-icon-wrap{position:relative;display:inline-flex;}
+    .warn-dot-mob{position:absolute;bottom:0;right:0;width:9px;height:9px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;animation:pulse-dot 1.8s ease-in-out infinite;}
+    .nham-area{display:none;align-items:center;gap:8px;}
+    .nham{display:flex;flex-direction:column;gap:5px;cursor:pointer;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:7px;width:36px;height:36px;align-items:center;justify-content:center;padding:0;flex-shrink:0;}
+    .nham span{display:block;width:16px;height:2px;background:#fff;border-radius:2px;transition:transform .22s,opacity .22s;}
+    .nham.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+    .nham.open span:nth-child(2){opacity:0;}
+    .nham.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+    #mob{display:none;position:fixed;top:66px;left:0;right:0;z-index:190;background:rgba(10,15,30,.45);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 18px 20px;flex-direction:column;gap:2px;box-shadow:0 8px 32px rgba(0,0,0,.3);}
+    #mob.open{display:flex;}
+    .mlink{display:block;color:rgba(255,255,255,.6);font-size:.93rem;font-weight:500;padding:10px 12px;border-radius:7px;text-decoration:none;transition:background .13s,color .13s;}
+    .mlink:hover{background:rgba(255,255,255,.08);color:#fff;}
+    .mlink.act{color:#60a5fa;font-weight:700;}
+    .mdiv{height:1px;background:rgba(255,255,255,.07);margin:8px 0;}
+    .mbtn{display:flex;align-items:center;gap:7px;border:none;border-radius:8px;padding:11px 16px;font-size:.92rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:4px;text-decoration:none;justify-content:center;}
+    .mbtn-blue{background:#2563eb;color:#fff;}
+    @media(max-width:700px){#nb-wrap{padding:10px 10px 0;}#nb{padding:0 12px 0 10px;border-radius:12px;max-width:100%;}.nlinks,.nright{display:none;}.nham-area{display:flex;}}
+    .page{position:relative;z-index:1;flex:1;display:flex;justify-content:center;align-items:center;padding:80px 20px 40px;}
+    #type-select{width:100%;max-width:600px;}
+    .ts-title{font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:6px;letter-spacing:-.3px;}
+    .ts-sub{font-size:.9rem;color:rgba(255,255,255,.4);margin-bottom:32px;}
+    .ts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:500px){.ts-grid{grid-template-columns:1fr;}}
+    .ts-card{background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 22px;cursor:pointer;transition:background .18s,border-color .18s,transform .18s,box-shadow .18s;position:relative;user-select:none;}
+    .ts-card:hover:not(.disabled){background:rgba(96,165,250,.07);border-color:rgba(96,165,250,.35);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+    .ts-card.disabled{cursor:not-allowed;opacity:.55;}
+    .ts-soon{position:absolute;top:12px;right:12px;background:rgba(96,165,250,.15);color:#93c5fd;border-radius:5px;padding:2px 9px;font-size:.7rem;font-weight:700;letter-spacing:.5px;}
+    .ts-name{font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px;}
+    .ts-desc{font-size:.8rem;color:rgba(255,255,255,.4);line-height:1.55;}
+    #rank-panel{display:none;width:100%;max-width:700px;}
+    #rank-panel.show{display:block;}
+    .back-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:7px 14px;font-size:.83rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;color:rgba(255,255,255,.7);margin-bottom:20px;transition:background .2s,color .2s;}
+    .back-btn:hover{background:rgba(248,113,113,.12);color:#f87171;border-color:rgba(248,113,113,.25);}
+    .rw-warn{display:none;background:rgba(248,113,113,.08);border:1.5px solid rgba(248,113,113,.25);border-radius:12px;padding:14px 16px;margin-bottom:20px;}
+    .rw-warn.show{display:block;}
+    .rw-warn-title{font-size:.88rem;font-weight:700;color:#f87171;margin-bottom:3px;}
+    .rw-warn-sub{font-size:.78rem;color:rgba(248,113,113,.6);}
+    .group-info{display:none;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+    .group-info.show{display:flex;align-items:center;gap:12px;}
+    .group-info-icon{width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.1);}
+    .group-info-body{flex:1;min-width:0;}
+    .group-info-name{font-size:.93rem;font-weight:700;color:#fff;}
+    .group-info-rank{font-size:.78rem;color:rgba(255,255,255,.4);margin-top:2px;}
+    .group-info-badge{background:rgba(96,165,250,.12);color:#93c5fd;border-radius:5px;padding:2px 8px;font-size:.72rem;font-weight:700;display:inline-block;margin-top:4px;}
+    .arow{display:flex;gap:10px;margin-bottom:22px;}
+    .abtn{flex:1;padding:13px 8px;border-radius:12px;border:1.5px solid rgba(255,255,255,.12);font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:900;cursor:pointer;transition:all .18s;background:rgba(255,255,255,.04);color:rgba(255,255,255,.7);}
+    .abtn.promote:hover,.abtn.promote.act{background:#16a34a;color:#fff;border-color:#16a34a;box-shadow:0 4px 20px rgba(22,163,74,.3);}
+    .abtn.demote:hover,.abtn.demote.act{background:#dc2626;color:#fff;border-color:#dc2626;box-shadow:0 4px 20px rgba(220,38,38,.3);}
+    .abtn.setrank{flex:2;}
+    .abtn.setrank:hover,.abtn.setrank.act{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 4px 20px rgba(37,99,235,.3);}
+    @media(max-width:480px){.arow{flex-wrap:wrap;}.abtn.setrank{flex:1 0 100%;}}
+    .fcard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:26px;box-shadow:0 2px 16px rgba(0,0,0,.2);position:relative;z-index:1;}
+    .field{margin-bottom:18px;}
+    .field label{display:block;font-size:.72rem;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+    .field input{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:9px;padding:11px 14px;color:#fff;font-size:.92rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .18s;}
+    .field input:focus{border-color:#3b82f6;}
+    .field input::placeholder{color:rgba(255,255,255,.25);}
+    .cs{position:relative;}
+    .cs-t{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:9px;padding:11px 14px;color:rgba(255,255,255,.3);font-size:.92rem;font-family:'Inter',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;transition:border-color .18s;user-select:none;}
+    .cs-t.sel{color:#fff;border-color:#3b82f6;}
+    .cs-t .gi{width:24px;height:24px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0;}
+    .cs-t.sel .gi{display:block;}
+    .cs-t .arr{margin-left:auto;font-size:.68rem;opacity:.35;transition:transform .18s;}
+    .cs-t.open .arr{transform:rotate(180deg);}
+    .cs-dd{display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;background:#131928;border:1.5px solid rgba(255,255,255,.1);border-radius:10px;z-index:9000;box-shadow:0 8px 28px rgba(0,0,0,.4);max-height:min(220px,35vh);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;}
+    .cs-dd.open{display:block;}
+    .cs-dd::-webkit-scrollbar{width:5px;}
+    .cs-dd::-webkit-scrollbar-track{background:transparent;}
+    .cs-dd::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:99px;}
+    .cs-opt{display:flex;align-items:center;gap:8px;padding:10px 13px;cursor:pointer;transition:background .12s;font-size:.9rem;color:rgba(255,255,255,.8);}
+    .cs-opt:hover{background:rgba(255,255,255,.07);}
+    .cs-opt.act{background:rgba(59,130,246,.1);border-left:3px solid #3b82f6;padding-left:10px;}
+    .cs-opt img{width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;}
+    .cs-empty{padding:10px 13px;color:rgba(255,255,255,.3);font-size:.84rem;}
+    .err{font-size:.78rem;color:#f87171;font-weight:600;margin-top:5px;min-height:16px;opacity:0;transition:opacity .2s;}
+    .err.show{opacity:1;}
+    .sbtn{width:100%;padding:13px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;transition:background .15s,transform .1s,box-shadow .15s;margin-top:2px;box-shadow:0 4px 20px rgba(37,99,235,.3);}
+    .sbtn:hover{background:#1d4ed8;transform:translateY(-1px);}
+    .sbtn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+    #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(60px);background:#131928;border:1px solid #16a34a;color:#4ade80;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.88rem;transition:transform .28s,opacity .28s;opacity:0;z-index:300;white-space:nowrap;box-shadow:0 4px 18px rgba(0,0,0,.3);}
+    #toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+    #toast.err{border-color:#dc2626;color:#f87171;}
+    #conf{display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;}
+    #conf.on{display:flex;}
+    #conf-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);}
+    #conf-box{position:relative;z-index:1;background:#131928;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 24px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+    #conf-box h3{font-size:.95rem;font-weight:800;margin-bottom:12px;color:#fff;}
+    .cmeta{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;font-size:.87rem;color:rgba(255,255,255,.6);line-height:1.75;margin-bottom:20px;}
+    .cmeta .cr{color:#60a5fa;font-weight:700;}
+    .cbts{display:flex;gap:8px;}
+    .cno{flex:1;padding:10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.1);border-radius:9px;font-size:.88rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;}
+    .cno:hover{background:rgba(255,255,255,.12);}
+    .cyes{flex:1;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:9px;font-size:.88rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;}
+    .cyes:hover{background:#1d4ed8;}
+    footer{position:relative;z-index:0;background:rgba(0,0,0,.3);border-top:1px solid rgba(255,255,255,.06);padding:20px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .fbrand{display:flex;align-items:center;gap:7px;flex:1;}
+    .fbrand img{width:22px;height:22px;border-radius:6px;object-fit:contain;}
+    .fbrand span{font-size:.85rem;font-weight:800;color:#fff;}
+    .fcopy{font-size:.76rem;color:rgba(255,255,255,.25);flex:1;text-align:center;}
+    .footer-links{display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;}
+    .footer-link{font-size:.73rem;font-weight:600;color:rgba(255,255,255,.5);text-decoration:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:4px 10px;transition:background .15s,color .15s;}
+    .footer-link:hover{background:rgba(255,255,255,.1);color:#fff;}
+    .footer-discord{display:inline-flex;align-items:center;gap:5px;background:rgba(88,101,242,.13);border:1px solid rgba(88,101,242,.28);border-radius:7px;padding:4px 10px;font-size:.73rem;font-weight:600;color:#818cf8;text-decoration:none;transition:background .15s;}
+    .footer-discord:hover{background:rgba(88,101,242,.22);}
+    @media(max-width:700px){footer{flex-direction:column;align-items:center;padding:14px 20px;gap:10px;}.fbrand{flex:none;justify-content:center;}.fcopy{flex:none;text-align:center;}.footer-links{flex:none;justify-content:center;flex-wrap:wrap;}}
+    /* GAME PANEL */
+    .gv-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;}
+    .gv-label{font-size:.75rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;}
+    .gv-title{font-size:1.05rem;font-weight:800;color:#fff;margin-top:3px;}
+    .gv-stat{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.18);border-radius:8px;padding:5px 13px;font-size:.8rem;font-weight:700;color:#93c5fd;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+    .gv-stat .dot{display:inline-block;width:7px;height:7px;background:#4ade80;border-radius:50%;animation:pulse-dot 1.8s ease-in-out infinite;}
+    .srv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;}
+    .srv-card{background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;cursor:pointer;transition:background .13s,border-color .13s,transform .12s;}
+    .srv-card:hover{background:rgba(96,165,250,.07);border-color:rgba(96,165,250,.3);transform:translateY(-2px);}
+    .srv-num{font-size:.82rem;font-weight:700;color:#fff;margin-bottom:4px;}
+    .srv-count{font-size:.76rem;color:rgba(255,255,255,.45);}
+    .srv-bar-wrap{background:rgba(255,255,255,.06);border-radius:3px;height:3px;margin-top:8px;overflow:hidden;}
+    .srv-bar{height:100%;background:#3b82f6;border-radius:3px;}
+    .pv-wrap{display:flex;gap:18px;flex-wrap:wrap;margin-top:4px;}
+    .pv-left{flex:1;min-width:240px;}
+    .pv-right{flex:0 0 210px;display:flex;flex-direction:column;gap:10px;}
+    .pv-label{font-size:.72rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+    .player-list{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;max-height:380px;overflow-y:auto;}
+    .prow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;transition:background .12s,border-left .12s;user-select:none;border-left:3px solid transparent;}
+    .prow:last-child{border-bottom:none;}
+    .prow:hover{background:rgba(255,255,255,.04);}
+    .prow.sel{background:rgba(96,165,250,.1);border-left-color:#3b82f6;}
+    .pav{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);flex-shrink:0;object-fit:cover;}
+    .pname{font-size:.85rem;font-weight:600;color:#fff;}
+    .phandle{font-size:.73rem;color:rgba(255,255,255,.35);margin-top:1px;}
+    .sel-label{font-size:.7rem;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+    .gbtn-row{display:flex;flex-direction:column;gap:8px;}
+    .gbtn{width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid rgba(255,255,255,.1);font-family:'Inter',sans-serif;font-size:.84rem;font-weight:700;cursor:pointer;transition:all .15s;background:rgba(255,255,255,.04);color:rgba(255,255,255,.6);text-align:left;display:flex;align-items:center;gap:8px;}
+    .gbtn:hover{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.25);color:#f87171;}
+    .gbtn:disabled{cursor:not-allowed;opacity:.35;}
+    .gbtn svg{flex-shrink:0;}
+    .join-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:#2563eb;color:#fff;text-decoration:none;border-radius:10px;padding:11px 18px;font-size:.88rem;font-weight:700;font-family:'Inter',sans-serif;transition:background .15s;border:none;cursor:pointer;width:100%;}
+    .join-btn:hover{background:#1d4ed8;}
+    .back-sub{display:inline-flex;align-items:center;gap:5px;color:rgba(255,255,255,.35);font-size:.8rem;cursor:pointer;margin-bottom:18px;transition:color .13s;background:none;border:none;font-family:'Inter',sans-serif;padding:0;}
+    .back-sub:hover{color:rgba(255,255,255,.7);}
+    @media(max-width:600px){.pv-wrap{flex-direction:column;}.pv-right{flex:none;width:100%;}}
+  </style>
+</head>
+<body>
+<div class="bg-canvas"><div class="bg-blob bg-blob-1"></div><div class="bg-blob bg-blob-2"></div></div>
+<div id="lo"><div class="spin"></div><div id="lo-msg">Bu işlem biraz uzun sürebilir...</div></div>
+
+<div id="nb-wrap"><nav id="nb">
+  <a href="/" class="nbrand"><img src="/pngs/pixlands.png" alt=""/><span id="nav-name">Pixlands</span></a>
+  <div class="nlinks">
+    <a href="/" class="nlink">Ana Sayfa</a>
+    <a href="/dashboard" class="nlink act">Dashboard</a>
+    <a href="/profile" class="nlink">Profil</a>
+  </div>
+  <div class="nright" id="nright"></div>
+  <div class="nham-area" id="nham-area">
+    <div id="mob-pill"></div>
+    <button class="nham" id="nham" onclick="toggleMob()"><span></span><span></span><span></span></button>
+  </div>
+</nav></div>
+<div id="mob">
+  <a href="/" class="mlink" onclick="closeMob()">Ana Sayfa</a>
+  <a href="/dashboard" class="mlink act" onclick="closeMob()">Dashboard</a>
+  <div class="mdiv"></div>
+  <div id="mob-act"></div>
+</div>
+
+<div class="page">
+  <div id="type-select">
+    <div class="ts-title">Dashboard</div>
+    <div class="ts-sub">Ne yapmak istiyorsunuz?</div>
+    <div class="ts-grid">
+      <div class="ts-card" onclick="openRank()">
+        <div class="ts-name">Rütbe Yönetimi</div>
+        <div class="ts-desc">Roblox grubunuzdaki üyelerin rütbelerini yönetin.</div>
+      </div>
+      <div class="ts-card" id="game-card" onclick="openGame()">
+        <span class="ts-soon" id="game-badge">Yakında</span>
+        <div class="ts-name">Oyun Yönetimi</div>
+        <div class="ts-desc">Oyunlarınızı ve sunucularınızı yönetin.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="rank-panel">
+    <button class="back-btn" onclick="backToSelect()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Geri</button>
+    <div class="rw-warn" id="rw-warn"><div class="rw-warn-title" id="rw-warn-t">Uyarı</div><div class="rw-warn-sub" id="rw-warn-s"></div></div>
+    <div class="group-info" id="group-info">
+      <img class="group-info-icon" id="gi-icon" src="" alt="" onerror="this.style.display='none'"/>
+      <div class="group-info-body"><div class="group-info-name" id="gi-name">—</div><div class="group-info-rank" id="gi-rank"></div><span class="group-info-badge" id="gi-badge" style="display:none"></span></div>
+    </div>
+    <div class="arow">
+      <button class="abtn promote act" onclick="setAct('promote')">Promote</button>
+      <button class="abtn demote" onclick="setAct('demote')">Demote</button>
+      <button class="abtn setrank" onclick="setAct('setrank')">Set Rank</button>
+    </div>
+    <div class="fcard">
+      <div class="field"><label>Kullanıcı Adı</label><input type="text" id="uinput" placeholder="Roblox kullanıcı adı..."/><div class="err" id="e-u"></div></div>
+      <div class="field"><label>Grup Seç</label><div class="cs" id="cs-g"><div class="cs-t" id="cs-g-t" onclick="toggleDd('g')"><img class="gi" id="g-icon" src="" alt=""/><span id="g-name">Grup seç...</span><span class="arr">▼</span></div><div class="cs-dd" id="cs-g-dd"></div></div><div class="err" id="e-g"></div></div>
+      <div class="field" id="rank-field" style="display:none"><label>Rütbe Seç</label><div class="cs" id="cs-r"><div class="cs-t" id="cs-r-t" onclick="openRankDd()"><span id="r-name">Rütbe seç...</span><span class="arr">▼</span></div><div class="cs-dd" id="cs-r-dd"></div></div><div class="err" id="e-r"></div></div>
+      <button class="sbtn" id="sbtn" onclick="confirmAct()">İşlemi Yap</button>
+      <div class="err" id="e-gen"></div>
+    </div>
+  </div>
+
+  <div id="game-panel" style="display:none;width:100%;max-width:900px;">
+    <button class="back-btn" onclick="backFromGame()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Geri
+    </button>
+
+    <!-- Oyun Listesi -->
+    <div id="game-list-view">
+      <div style="font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:6px">Oyun Yönetimi</div>
+      <div style="font-size:.85rem;color:rgba(255,255,255,.4);margin-bottom:24px">Bir oyun seçin.</div>
+      <div id="game-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;"></div>
+    </div>
+
+    <!-- Server Listesi -->
+    <div id="game-server-view" style="display:none">
+      <div class="gv-hdr">
+        <div><div class="gv-label" id="gv-name">—</div><div class="gv-title">Sunucular</div></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="gv-stat"><span class="dot"></span><span id="gv-total">0 oyuncu</span></div>
+          <button onclick="showGlobalBans()" style="display:inline-flex;align-items:center;gap:6px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);border-radius:8px;padding:5px 13px;font-size:.78rem;font-weight:700;color:#f87171;cursor:pointer;font-family:Inter,sans-serif;transition:background .15s" onmouseenter="this.style.background='rgba(248,113,113,.18)'" onmouseleave="this.style.background='rgba(248,113,113,.1)'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Global Banlar
+          </button>
+        </div>
+      </div>
+      <div class="srv-grid" id="server-grid"></div>
+      <!-- Server Ban Listesi -->
+      <div id="server-ban-list" style="display:none;margin-top:24px">
+        <div style="font-size:.75rem;font-weight:700;color:#f87171;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:7px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          <span id="sbl-label">Server Ban Listesi</span>
+        </div>
+        <div id="sbl-content" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden"></div>
+      </div>
+    </div>
+
+    <!-- Oyuncu Listesi -->
+    <div id="game-player-view" style="display:none">
+      <div class="gv-hdr" style="margin-bottom:14px">
+        <div><div class="gv-label" id="pv-srv-label">Server</div><div class="gv-title">Oyuncular</div></div>
+      </div>
+      <div class="pv-wrap">
+        <div class="pv-left">
+          <div class="pv-label">Sunucudaki Oyuncular</div>
+          <div class="player-list" id="player-list"></div>
+        </div>
+        <div class="pv-right">
+          <div>
+            <div class="sel-label">Seçili Oyuncu</div>
+            <div id="sel-player-info" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:14px;min-height:58px;display:flex;align-items:center;gap:10px;">
+              <div style="font-size:.78rem;color:rgba(255,255,255,.25)">Oyuncu seçin...</div>
+            </div>
+          </div>
+          <a id="join-btn" href="#" target="_blank" class="join-btn">
+            <img src="/pngs/roblox.png" style="width:15px;height:15px;object-fit:contain" alt=""/>
+            Sunucuya Katıl
+          </a>
+          <div class="gbtn-row">
+            <button class="gbtn" id="btn-server-ban" disabled onclick="doServerBan()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              Server Ban
+            </button>
+            <button class="gbtn" id="btn-global-ban" disabled onclick="doGlobalBan()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Global Ban
+            </button>
+            <button class="gbtn" id="btn-kick" disabled onclick="doKick()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Server Kick
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="conf"><div id="conf-bg" onclick="closeConf()"></div><div id="conf-box"><h3 id="conf-t">İşlemi Onayla</h3><div class="cmeta" id="conf-m"></div><div class="cbts"><button class="cno" onclick="closeConf()">İptal</button><button class="cyes" onclick="doAct()">Eminim, Uygula</button></div></div></div>
+<div id="toast"></div>
+
+<footer>
+  <div class="fbrand"><img src="/pngs/pixlands.png" alt=""/><span id="fname">Pixlands</span></div>
+  <div class="fcopy" id="fcopy">© 2026 Pixlands — Tüm hakları saklıdır.</div>
+  <div class="footer-links">
+    <a href="/terms" class="footer-link">Hizmet Şartları</a>
+    <a href="/privacy" class="footer-link">Gizlilik Politikası</a>
+    <a href="" id="footer-discord" class="footer-discord" target="_blank">
+      <img src="/pngs/discord.png" style="width:13px;height:13px;object-fit:contain" alt=""/>
+      <span>Discord</span>
+    </a>
+  </div>
+</footer>
+
+<script>
+let curAct="promote",selGId=null,selRId=null,selRName=null,groups=[],curUser=null,isTeam=false;
+let SITE_NAME="Pixlands";
+const COOLDOWN_MS=30000;
+function av(id,h){return h?`https://cdn.discordapp.com/avatars/${id}/${h}.png?size=64`:`https://cdn.discordapp.com/embed/avatars/0.png`;}
+function toggleMob(){const m=document.getElementById("mob"),h=document.getElementById("nham");const o=m.classList.contains("open");m.classList.toggle("open",!o);h.classList.toggle("open",!o);}
+function closeMob(){document.getElementById("mob").classList.remove("open");document.getElementById("nham")?.classList.remove("open");}
+function openRank(){
+  if(!curUser?.in_guild||!curUser?.roblox_username){showToast(!curUser?.in_guild?"Önce Discord sunucusuna katılmalısınız.":"Önce RoWifi verify yapmalısınız.",true);return;}
+  const ov=getTransOverlay();
+  showOverlay(ov);
+  setTimeout(()=>{
+    document.getElementById("type-select").style.display="none";
+    document.getElementById("rank-panel").style.opacity="0";
+    document.getElementById("rank-panel").classList.add("show");
+    hideOverlay(ov,()=>{
+      const rp=document.getElementById("rank-panel");
+      rp.style.transition="opacity .35s";rp.style.opacity="1";
+    });
+  },2000);
+}
+function backToSelect(){
+  const ov=getTransOverlay();
+  showOverlay(ov);
+  setTimeout(()=>{
+    document.getElementById("rank-panel").classList.remove("show");
+    document.getElementById("rank-panel").style.opacity="";
+    hideOverlay(ov,()=>{
+      const ts=document.getElementById("type-select");
+      ts.style.opacity="0";ts.style.display="";
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ts.style.transition="opacity .35s";ts.style.opacity="1";}));
+    });
+  },2000);
+}
+function showOverlay(ov){ov.style.opacity="0";ov.style.display="flex";requestAnimationFrame(()=>requestAnimationFrame(()=>{ov.style.transition="opacity .3s";ov.style.opacity="1";}));}
+function hideOverlay(ov,cb){ov.style.transition="opacity .35s";ov.style.opacity="0";setTimeout(()=>{ov.style.display="none";if(cb)cb();},350);}
+function getTransOverlay(){
+  let ov=document.getElementById("trans-overlay");
+  if(!ov){ov=document.createElement("div");ov.id="trans-overlay";ov.style.cssText="position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0a0f1e;z-index:9999;opacity:0;transition:opacity .3s";ov.innerHTML=`<div class="spin"></div>`;document.body.appendChild(ov);}
+  return ov;
+}
+function openGame(){
+  if(!isTeam){showToast("Bu alana erişim yetkiniz yok.",true);return;}
+  const ov=getTransOverlay();
+  showOverlay(ov);
+  setTimeout(function(){
+    document.getElementById("type-select").style.display="none";
+    const gp=document.getElementById("game-panel");
+    gp.style.opacity="0";
+    gp.style.display="block";
+    loadGames().then(function(){
+      hideOverlay(ov,function(){
+        requestAnimationFrame(function(){requestAnimationFrame(function(){gp.style.transition="opacity .35s";gp.style.opacity="1";});});
+      });
+    });
+  },300);
+}
+function backFromGame(){
+  // If in player view → go to server view
+  const pv=document.getElementById("game-player-view");
+  const sv=document.getElementById("game-server-view");
+  const lv=document.getElementById("game-list-view");
+  if(pv.style.display!=="none"){pv.style.display="none";sv.style.display="block";return;}
+  if(sv.style.display!=="none"){sv.style.display="none";lv.style.display="block";return;}
+  // From game list → back to type-select with transition
+  const ov=getTransOverlay();
+  showOverlay(ov);
+  setTimeout(()=>{
+    document.getElementById("game-panel").style.display="none";
+    lv.style.display="block";
+    sv.style.display="none";
+    pv.style.display="none";
+    hideOverlay(ov,()=>{
+      const ts=document.getElementById("type-select");
+      ts.style.opacity="0";ts.style.display="";
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ts.style.transition="opacity .35s";ts.style.opacity="1";}));
+    });
+  },500);
+}
+let curPlaceId=null,curServerId=null,curServers=[];
+
+function showGameList(){
+  document.getElementById("game-server-view").style.display="none";
+  document.getElementById("game-player-view").style.display="none";
+  document.getElementById("game-list-view").style.display="block";
+}
+function showServerList(){
+  document.getElementById("game-player-view").style.display="none";
+  document.getElementById("game-server-view").style.display="block";
+}
+
+async function loadGames(){
+  const grid=document.getElementById("game-grid");
+  grid.innerHTML='<div style="color:rgba(255,255,255,.35);font-size:.88rem">Yükleniyor...</div>';
+  try{
+    const d=await(await fetch("/api/games")).json();
+    if(!d.games||!d.games.length){
+      grid.innerHTML="<div style=\"color:rgba(255,255,255,.35);font-size:.88rem\">config.js'de oyun tanımlı değil.</div>";
+      return;
+    }
+    // Her oyun için sunucu sayısını çek
+    const serverCounts=await Promise.all(d.games.map(async function(g){
+      try{
+        const r=await(await fetch("/api/game-servers?placeId="+g.placeId)).json();
+        const total=(r.servers||[]).reduce(function(a,s){return a+s.playerCount;},0);
+        return{placeId:g.placeId,total:total};
+      }catch(e){return{placeId:g.placeId,total:0};}
+    }));
+    grid.innerHTML="";
+    d.games.forEach(function(g){
+      const sc=serverCounts.find(function(s){return s.placeId===g.placeId;});
+      const total=sc?sc.total:0;
+      const isActive=total>0;
+      const card=document.createElement("div");
+      card.style.cssText="background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s;";
+      if(isActive){
+        card.style.cursor="pointer";
+        card.onclick=function(){selectGame(g.placeId,encodeURIComponent(g.name));};
+        card.onmouseenter=function(){this.style.transform="translateY(-2px)";this.style.background="rgba(96,165,250,.06)";this.style.borderColor="rgba(96,165,250,.28)";this.style.boxShadow="0 8px 28px rgba(0,0,0,.3)";};
+        card.onmouseleave=function(){this.style.transform="";this.style.background="rgba(255,255,255,.04)";this.style.borderColor="rgba(255,255,255,.08)";this.style.boxShadow="";};
+      } else {
+        card.style.cursor="not-allowed";
+        card.style.opacity=".55";
+      }
+      // İkon
+      if(g.icon){
+        const img=document.createElement("img");
+        img.src=g.icon;
+        img.style.cssText="width:100%;border-radius:8px;margin-bottom:10px;object-fit:cover;aspect-ratio:1";
+        img.onerror=function(){this.style.display="none";};
+        card.appendChild(img);
+      } else {
+        const ph=document.createElement("div");
+        ph.style.cssText="width:100%;aspect-ratio:1;background:rgba(255,255,255,.06);border-radius:8px;margin-bottom:10px";
+        card.appendChild(ph);
+      }
+      // İsim
+      const nm=document.createElement("div");
+      nm.style.cssText="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:6px";
+      nm.textContent=g.name;
+      card.appendChild(nm);
+      // Durum satırı
+      const row=document.createElement("div");
+      row.style.cssText="font-size:.76rem;display:flex;align-items:center;gap:5px";
+      const dot=document.createElement("span");
+      dot.style.cssText="display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;"+(isActive?"background:#4ade80;animation:pulse-dot 1.8s ease-in-out infinite":"background:#f87171");
+      const lbl=document.createElement("span");
+      lbl.style.color=isActive?"#4ade80":"#f87171";
+      lbl.textContent=isActive?"Aktif":"İnaktif";
+      row.appendChild(dot);
+      row.appendChild(lbl);
+      if(isActive){
+        const badge=document.createElement("span");
+        badge.style.cssText="margin-left:auto;background:rgba(96,165,250,.1);color:#93c5fd;border-radius:5px;padding:1px 8px;font-size:.72rem;font-weight:700";
+        badge.textContent=total+" oyuncu";
+        row.appendChild(badge);
+      }
+      card.appendChild(row);
+      grid.appendChild(card);
+    });
+  }catch(e){
+    document.getElementById("game-grid").innerHTML='<div style="color:#f87171;font-size:.88rem">Oyunlar yüklenemedi.</div>';
+  }
+}
+
+async function selectGame(placeId,encodedName){
+  curPlaceId=placeId;
+  const name=decodeURIComponent(encodedName);
+  document.getElementById("game-list-view").style.display="none";
+  const sv=document.getElementById("game-server-view");
+  sv.style.display="block";
+  document.getElementById("gv-name").textContent=name;
+  document.getElementById("gv-total").textContent="Yükleniyor...";
+  const sg=document.getElementById("server-grid");
+  sg.innerHTML=`<div style="color:rgba(255,255,255,.35);font-size:.88rem;grid-column:1/-1">Sunucular yükleniyor...</div>`;
+  try{
+    const d=await(await fetch(`/api/game-servers?placeId=${placeId}`)).json();
+    curServers=d.servers||[];
+    if(!curServers.length){
+      sg.innerHTML=`<div style="color:rgba(255,255,255,.35);font-size:.88rem;grid-column:1/-1">Aktif sunucu yok.</div>`;
+      document.getElementById("gv-total").textContent="0 oyuncu";
+      return;
+    }
+    const total=curServers.reduce((a,s)=>a+s.playerCount,0);
+    document.getElementById("gv-total").textContent=`Toplam ${total} oyuncu`;
+    sg.innerHTML=curServers.map((s,i)=>`
+      <div class="srv-card" onclick="selectServer('${s.id}',${placeId},${i+1})">
+        <div class="srv-num">Server ${i+1}</div>
+        <div class="srv-count">${s.playerCount}/${s.maxPlayers} oyuncu</div>
+        <div class="srv-bar-wrap"><div class="srv-bar" style="width:${Math.round(s.playerCount/s.maxPlayers*100)}%"></div></div>
+      </div>`).join("");
+  }catch(e){sg.innerHTML=`<div style="color:#f87171;font-size:.88rem;grid-column:1/-1">Sunucular yüklenemedi.</div>`;}
+}
+
+let selPlayer=null;
+async function selectServer(serverId,placeId,srvNum){
+  curServerId=serverId;
+  document.getElementById("game-server-view").style.display="none";
+  const pv=document.getElementById("game-player-view");
+  pv.style.display="block";
+  document.getElementById("pv-srv-label").textContent="Server "+srvNum;
+  document.getElementById("join-btn").href="https://www.roblox.com/games/start?placeId="+placeId+"&gameInstanceId="+serverId;
+  selPlayer=null;
+  updateSelInfo();
+  const pl=document.getElementById("player-list");
+  pl.innerHTML='<div style="padding:14px;color:rgba(255,255,255,.35);font-size:.85rem">Oyuncular yükleniyor...</div>';
+  try{
+    const d=await(await fetch("/api/game-players?placeId="+placeId+"&serverId="+serverId)).json();
+    if(!d.players||!d.players.length){
+      pl.innerHTML='<div style="padding:14px;color:rgba(255,255,255,.35);font-size:.85rem">Oyuncu bilgisi alınamadı.</div>';
+      return;
+    }
+    pl.innerHTML="";
+    d.players.forEach(function(p){
+      const name=p.displayName||p.name||"?";
+      const handle=p.name||"";
+      const uid=String(p.id||"");
+      const avUrl=p.avatar||(uid?"https://www.roblox.com/headshot-thumbnail/image?userId="+uid+"&width=60&height=60&format=png":"");
+      const row=document.createElement("div");
+      row.className="prow";
+      row.dataset.uid=uid;
+      row.onclick=function(){selectPlayer(uid,name,handle,avUrl);};
+      if(avUrl){
+        const img=document.createElement("img");
+        img.className="pav";
+        img.src=avUrl;
+        img.alt="";
+        img.onerror=function(){this.style.background="rgba(255,255,255,.15)";};
+        row.appendChild(img);
+      } else {
+        const av=document.createElement("div");
+        av.className="pav";
+        row.appendChild(av);
+      }
+      const info=document.createElement("div");
+      const nm=document.createElement("div");
+      nm.className="pname";
+      nm.textContent=name;
+      const hd=document.createElement("div");
+      hd.className="phandle";
+      hd.textContent="@"+handle;
+      info.appendChild(nm);
+      info.appendChild(hd);
+      row.appendChild(info);
+      if(uid){
+        const link=document.createElement("a");
+        link.href="https://www.roblox.com/users/"+uid+"/profile";
+        link.target="_blank";
+        link.textContent="Profil ↗";
+        link.style.cssText="margin-left:auto;font-size:.7rem;color:rgba(255,255,255,.3);text-decoration:none;padding:3px 7px;background:rgba(255,255,255,.06);border-radius:5px;white-space:nowrap;transition:color .12s";
+        link.onmouseenter=function(){this.style.color="#60a5fa";};
+        link.onmouseleave=function(){this.style.color="rgba(255,255,255,.3)";};
+        link.onclick=function(e){e.stopPropagation();};
+        row.appendChild(link);
+      }
+      pl.appendChild(row);
+    });
+  }catch(e){
+    pl.innerHTML='<div style="padding:14px;color:#f87171;font-size:.85rem">Oyuncular alınamadı.</div>';
+  }
+  // Butonları disable başlat
+  ["btn-server-ban","btn-global-ban","btn-kick"].forEach(function(id){
+    var btn=document.getElementById(id);if(btn)btn.disabled=true;
+  });
+  // Server ban listesini yükle
+  loadServerBanList(placeId,serverId,srvNum);
+}
+
+function selectPlayer(uid,name,handle,avUrl){
+  selPlayer={uid:uid,name:name,handle:handle,av:avUrl};
+  document.querySelectorAll(".prow").forEach(function(r){r.classList.remove("sel");});
+  document.querySelectorAll(".prow").forEach(function(r){if(r.dataset.uid===String(uid))r.classList.add("sel");});
+  updateSelInfo();
+  ["btn-server-ban","btn-global-ban","btn-kick"].forEach(function(id){
+    var btn=document.getElementById(id);if(btn)btn.disabled=false;
+  });
+}
+
+function updateSelInfo(){
+  var el=document.getElementById("sel-player-info");
+  el.innerHTML="";
+  if(!selPlayer){
+    el.innerHTML='<div style="font-size:.78rem;color:rgba(255,255,255,.25)">Oyuncu seçin...</div>';
+    ["btn-server-ban","btn-global-ban","btn-kick"].forEach(function(id){var btn=document.getElementById(id);if(btn)btn.disabled=true;});
+    return;
+  }
+  if(selPlayer.av){
+    var img=document.createElement("img");
+    img.src=selPlayer.av;
+    img.style.cssText="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0";
+    img.alt="";
+    img.onerror=function(){this.style.display="none";};
+    el.appendChild(img);
+  } else {
+    var ph=document.createElement("div");
+    ph.style.cssText="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.1);flex-shrink:0";
+    el.appendChild(ph);
+  }
+  var info=document.createElement("div");
+  var nm=document.createElement("div");
+  nm.style.cssText="font-size:.85rem;font-weight:700;color:#fff";
+  nm.textContent=selPlayer.name;
+  var hd=document.createElement("div");
+  hd.style.cssText="font-size:.72rem;color:rgba(255,255,255,.38)";
+  hd.textContent="@"+selPlayer.handle;
+  info.appendChild(nm);
+  info.appendChild(hd);
+  el.appendChild(info);
+}
+// ── BAN LİSTESİ YARDIMCISI ──
+function banListItem(uid, username, displayName, avatar, reason, onUnban){
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05)";
+  // Avatar
+  const av = document.createElement("img");
+  av.src = avatar || "https://www.roblox.com/headshot-thumbnail/image?userId="+uid+"&width=48&height=48&format=png";
+  av.style.cssText = "width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.08)";
+  av.onerror = function(){this.style.background="rgba(255,255,255,.12)";this.src="";};
+  row.appendChild(av);
+  // İsim + handle + reason
+  const info = document.createElement("div");
+  info.style.cssText = "flex:1;min-width:0";
+  const nm = document.createElement("div");
+  nm.style.cssText = "font-size:.84rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+  nm.textContent = displayName || username || uid;
+  const hd = document.createElement("div");
+  hd.style.cssText = "font-size:.72rem;color:rgba(255,255,255,.38);margin-top:1px";
+  hd.textContent = (username && username!==displayName ? "@"+username+"  •  " : "") + (reason||"Sebep yok");
+  info.appendChild(nm); info.appendChild(hd);
+  row.appendChild(info);
+  // Profil linki
+  if(uid){
+    const pl = document.createElement("a");
+    pl.href = "https://www.roblox.com/users/"+uid+"/profile";
+    pl.target = "_blank";
+    pl.textContent = "↗";
+    pl.style.cssText = "font-size:.8rem;color:rgba(255,255,255,.3);text-decoration:none;padding:3px 7px;background:rgba(255,255,255,.06);border-radius:5px;flex-shrink:0;transition:color .12s";
+    pl.onmouseenter=function(){this.style.color="#60a5fa";};
+    pl.onmouseleave=function(){this.style.color="rgba(255,255,255,.3)";};
+    row.appendChild(pl);
+  }
+  // Unban butonu
+  if(onUnban){
+    const ub = document.createElement("button");
+    ub.textContent = "Kaldır";
+    ub.style.cssText = "padding:4px 10px;border-radius:6px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171;font-size:.72rem;font-weight:700;cursor:pointer;flex-shrink:0;font-family:Inter,sans-serif;transition:background .12s";
+    ub.onmouseenter=function(){this.style.background="rgba(248,113,113,.2)";};
+    ub.onmouseleave=function(){this.style.background="rgba(248,113,113,.1)";};
+    ub.onclick = function(){onUnban(row, ub);};
+    row.appendChild(ub);
+  }
+  return row;
+}
+
+async function enrichUserIds(userIds){
+  // userId → {username, displayName, avatar} map döner
+  const map = {};
+  if(!userIds.length) return map;
+  try{
+    const nr = await(await fetch("https://users.roblox.com/v1/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userIds,excludeBannedUsers:false})})).json();
+    (nr.data||[]).forEach(u=>{map[u.id]={username:u.name,displayName:u.displayName};});
+  }catch(e){}
+  try{
+    const avIds = userIds.join(",");
+    const ar = await(await fetch("https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds="+avIds+"&size=48x48&format=Png")).json();
+    (ar.data||[]).forEach(a=>{if(map[a.targetId])map[a.targetId].avatar=a.imageUrl;});
+  }catch(e){}
+  return map;
+}
+
+// Server ban listesini server seçince göster
+async function loadServerBanList(placeId, serverId, srvNum){
+  const wrap = document.getElementById("server-ban-list");
+  const cont = document.getElementById("sbl-content");
+  const label = document.getElementById("sbl-label");
+  if(!wrap||!cont) return;
+  wrap.style.display = "none";
+  cont.innerHTML = '<div style="padding:12px;color:rgba(255,255,255,.35);font-size:.83rem">Yükleniyor...</div>';
+  try{
+    const d = await(await fetch("/api/game-server-bans?placeId="+placeId+"&serverId="+serverId)).json();
+    const bans = d.bans||[];
+    if(!bans.length){ wrap.style.display="none"; return; }
+    wrap.style.display = "block";
+    label.textContent = "Server "+(srvNum||"")+" — Ban Listesi ("+bans.length+")";
+    cont.innerHTML = "";
+    const userIds = bans.map(b=>parseInt(b.userId)).filter(Boolean);
+    const umap = await enrichUserIds(userIds);
+    bans.forEach(function(b){
+      const uid = b.userId;
+      const info = umap[parseInt(uid)]||{};
+      const row = banListItem(uid, info.username||b.username||uid, info.displayName||info.username||uid, info.avatar, b.reason, async function(rowEl, btn){
+        if(!confirm("Bu oyuncunun server banını kaldırmak istiyor musunuz?"))return;
+        btn.disabled=true; btn.textContent="...";
+        const r2 = await(await fetch("/api/game-server-unban",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId,serverId,userId:uid})})).json();
+        if(r2.ok){rowEl.remove(); showToast("Server ban kaldırıldı."); if(!cont.children.length)wrap.style.display="none";}
+        else{showToast(r2.error||"Kaldırma başarısız.",true);btn.disabled=false;btn.textContent="Kaldır";}
+      });
+      cont.appendChild(row);
+    });
+  }catch(e){wrap.style.display="none";}
+}
+
+// Global ban listesi modal
+async function showGlobalBans(){
+  if(!curPlaceId){showToast("Önce bir oyun seçin.",true);return;}
+  const modal = document.createElement("div");
+  modal.style.cssText = "position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center";
+  const bg = document.createElement("div");
+  bg.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px)";
+  bg.onclick = function(){modal.remove();};
+  const box = document.createElement("div");
+  box.style.cssText = "position:relative;z-index:1;background:#131928;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:20px;max-width:440px;width:92%;max-height:72vh;display:flex;flex-direction:column;gap:12px";
+  const title = document.createElement("div");
+  title.style.cssText = "font-size:.9rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px";
+  title.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Global Ban Listesi';
+  const listWrap = document.createElement("div");
+  listWrap.style.cssText = "overflow-y:auto;flex:1;border-radius:10px;border:1px solid rgba(255,255,255,.07);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent";
+  listWrap.innerHTML = '<div style="padding:14px;color:rgba(255,255,255,.35);font-size:.83rem">Yükleniyor...</div>';
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "Kapat";
+  closeBtn.style.cssText = "width:100%;padding:9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;cursor:pointer;font-family:Inter,sans-serif;font-size:.85rem;font-weight:600";
+  closeBtn.onclick = function(){modal.remove();};
+  box.appendChild(title); box.appendChild(listWrap); box.appendChild(closeBtn);
+  modal.appendChild(bg); modal.appendChild(box);
+  document.body.appendChild(modal);
+  try{
+    const d = await(await fetch("/api/game-bans?placeId="+curPlaceId)).json();
+    const bans = d.bans||[];
+    listWrap.innerHTML = "";
+    if(!bans.length){listWrap.innerHTML='<div style="padding:14px;color:rgba(255,255,255,.35);font-size:.83rem">Banlı oyuncu yok.</div>';return;}
+    const userIds = bans.map(b=>parseInt(b.userId)).filter(Boolean);
+    const umap = await enrichUserIds(userIds);
+    bans.forEach(function(b){
+      const uid = b.userId;
+      const info = umap[parseInt(uid)]||{};
+      const row = banListItem(uid, info.username||b.username||uid, info.displayName||info.username||uid, info.avatar, b.reason, async function(rowEl, btn){
+        if(!confirm("Bu oyuncunun global banını kaldırmak istiyor musunuz?"))return;
+        btn.disabled=true; btn.textContent="...";
+        const r2 = await(await fetch("/api/game-unban",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId:curPlaceId,userId:uid})})).json();
+        if(r2.ok){rowEl.remove(); showToast("Global ban kaldırıldı."); if(!listWrap.children.length)listWrap.innerHTML='<div style="padding:14px;color:rgba(255,255,255,.35);font-size:.83rem">Banlı oyuncu yok.</div>';}
+        else{showToast(r2.error||"Kaldırma başarısız.",true);btn.disabled=false;btn.textContent="Kaldır";}
+      });
+      listWrap.appendChild(row);
+    });
+  }catch(e){listWrap.innerHTML='<div style="padding:14px;color:#f87171;font-size:.83rem">Liste alınamadı.</div>';}
+}
+
+// ── KICK / SERVER BAN / GLOBAL BAN ──
+async function doKick(){
+  if(!selPlayer||!curPlaceId||!curServerId){showToast("Oyuncu seçili değil.",true);return;}
+  const reason = prompt("Kick sebebi (boş bırakılabilir):","");
+  if(reason===null)return;
+  const r=await(await fetch("/api/game-kick",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId:curPlaceId,serverId:curServerId,userId:selPlayer.uid,reason})})).json();
+  r.ok ? showToast(selPlayer.name+" kicked.") : showToast(r.error||"Kick başarısız.",true);
+}
+async function doServerBan(){
+  if(!selPlayer||!curPlaceId||!curServerId){showToast("Oyuncu seçili değil.",true);return;}
+  const reason = prompt("Ban sebebi:");
+  if(!reason)return;
+  const r=await(await fetch("/api/game-server-ban",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId:curPlaceId,serverId:curServerId,userId:selPlayer.uid,reason})})).json();
+  if(r.ok){showToast(selPlayer.name+" server ban yedi."); loadServerBanList(curPlaceId,curServerId);}
+  else showToast(r.error||"Server ban başarısız.",true);
+}
+async function doGlobalBan(){
+  if(!selPlayer||!curPlaceId){showToast("Oyuncu seçili değil.",true);return;}
+  const reason = prompt("Global ban sebebi:");
+  if(!reason)return;
+  if(!confirm(selPlayer.name+" isimli oyuncuya GLOBAL ban uygulanacak. Emin misiniz?"))return;
+  const r=await(await fetch("/api/game-ban",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({placeId:curPlaceId,userId:selPlayer.uid,reason})})).json();
+  r.ok ? showToast(selPlayer.name+" global ban yedi.") : showToast(r.error||"Global ban başarısız.",true);
+}
+
+function clearErrs(){["e-u","e-g","e-r","e-gen"].forEach(id=>{const e=document.getElementById(id);e.textContent="";e.classList.remove("show");});}
+function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),4500);}
+function showToast(msg,isErr){const t=document.getElementById("toast");t.textContent=msg;t.className="show"+(isErr?" err":"");setTimeout(()=>{t.className="";},3800);}
+function setAct(a){curAct=a;document.querySelectorAll(".abtn").forEach(b=>b.classList.remove("act"));document.querySelector(".abtn."+a).classList.add("act");document.getElementById("rank-field").style.display=a==="setrank"?"block":"none";selRId=null;selRName=null;resetSel("r");clearErrs();if(selGId)loadRoles(selGId);}
+function toggleDd(type){const tr=document.getElementById(`cs-${type}-t`),dd=document.getElementById(`cs-${type}-dd`);const open=dd.classList.contains("open");document.querySelectorAll(".cs-dd").forEach(d=>d.classList.remove("open"));document.querySelectorAll(".cs-t").forEach(t=>t.classList.remove("open"));if(!open){tr.classList.add("open");dd.classList.add("open");}}
+function openRankDd(){if(!selGId){showErr("e-g","Önce grup seçmelisiniz.");return;}toggleDd("r");}
+function resetSel(type){document.getElementById(`cs-${type}-t`).classList.remove("sel","open");document.getElementById(`cs-${type}-dd`).classList.remove("open");if(type==="g")document.getElementById("g-name").textContent="Grup seç...";if(type==="r")document.getElementById("r-name").textContent="Rütbe seç...";}
+function updateGroupInfo(g){const card=document.getElementById("group-info");if(!g){card.classList.remove("show");return;}document.getElementById("gi-icon").src=g.icon||"";document.getElementById("gi-icon").style.display=g.icon?"":"none";document.getElementById("gi-name").textContent=g.name;const minR=g.minAdminRank||0;const badge=document.getElementById("gi-badge");if(minR>0){badge.textContent=`Min. Admin Rank: ${minR}`;badge.style.display="";}else{badge.style.display="none";}if(curUser?.roblox_username){document.getElementById("gi-rank").textContent="Rütbeniz yükleniyor...";fetch(`/api/user-rank?username=${encodeURIComponent(curUser.roblox_username)}&groupId=${g.id}`).then(r=>r.json()).then(d=>{if(d.roleName)document.getElementById("gi-rank").textContent=`Sizin rütbeniz: ${d.roleName} (#${d.rank})`;else document.getElementById("gi-rank").textContent="Bu grupta rütbeniz yok.";}).catch(()=>document.getElementById("gi-rank").textContent="");}else{document.getElementById("gi-rank").textContent="";}card.classList.add("show");}
+function selectGroup(idx){const g=groups[idx];selGId=g.id;selRId=null;selRName=null;const t=document.getElementById("cs-g-t");t.classList.add("sel");t.classList.remove("open");document.getElementById("g-name").textContent=g.name;document.getElementById("g-icon").src=g.icon||"";document.getElementById("cs-g-dd").classList.remove("open");document.querySelectorAll("#cs-g-dd .cs-opt").forEach((el,i)=>el.classList.toggle("act",i===idx));resetSel("r");loadRoles(g.id);updateGroupInfo(g);}
+function selectRank(rId,rName){selRId=rId;selRName=rName;const t=document.getElementById("cs-r-t");t.classList.add("sel");t.classList.remove("open");document.getElementById("r-name").textContent=rName;document.getElementById("cs-r-dd").classList.remove("open");document.querySelectorAll("#cs-r-dd .cs-opt").forEach(el=>el.classList.toggle("act",String(el.dataset.rid)===String(rId)));}
+async function loadRoles(gId){const dd=document.getElementById("cs-r-dd");dd.innerHTML='<div class="cs-empty">Yükleniyor...</div>';const fd=curAct==="demote"?"&demote=1":"";try{const d=await(await fetch(`/api/grouproles?groupId=${gId}${fd}`)).json();dd.innerHTML="";if(!d.roles?.length){dd.innerHTML='<div class="cs-empty">Rütbeler ayarlanmadı</div>';return;}d.roles.forEach(r=>{const o=document.createElement("div");o.className="cs-opt";o.dataset.rid=r.rank;o.textContent=`${r.name} (#${r.rank})`;o.onclick=()=>selectRank(r.rank,r.name);dd.appendChild(o);});}catch(e){dd.innerHTML='<div class="cs-empty" style="color:#f87171">Roller yüklenemedi.</div>';}}
+function r(text){return `<span class="cr">${text}</span>`;}
+async function confirmAct(){clearErrs();if(curUser&&!curUser.roblox_username){const w=document.getElementById("rw-warn");w.classList.add("show");w.scrollIntoView({behavior:"smooth",block:"center"});return;}const un=document.getElementById("uinput").value.trim();let valid=true;if(!un){showErr("e-u","Kullanıcı adı girmediniz.");valid=false;}if(!selGId){showErr("e-g","Grup seçmediniz.");valid=false;}if(curAct==="setrank"&&!selRId){showErr("e-r","Rütbe seçmediniz.");valid=false;}if(!valid)return;const grp=groups.find(g=>g.id===selGId);const grpName=grp?.name||"?";document.getElementById("conf-t").textContent=`İşlemi Onayla`;let curRoleTxt="?",nextRoleTxt="?",prevRoleTxt="?";try{const ud=await(await fetch(`/api/user-rank?username=${encodeURIComponent(un)}&groupId=${selGId}`)).json();if(ud.roleName){curRoleTxt=ud.roleName;nextRoleTxt=ud.nextRole||"(yok)";prevRoleTxt=ud.prevRole||"(yok)";}}catch(e){}let changeStr="";if(curAct==="promote"){changeStr=`${r(curRoleTxt)} → ${r(nextRoleTxt)}`;}else if(curAct==="demote"){changeStr=`${r(curRoleTxt)} → ${r(prevRoleTxt)}`;}else{changeStr=`${r(curRoleTxt)} → ${r(selRName)}`;}document.getElementById("conf-m").innerHTML=`${r(grpName)} grubunda ${r(un)} kullanıcısına ${changeStr} yapılacak değişikliği onaylıyor musunuz?`;document.getElementById("conf").classList.add("on");}
+function closeConf(){document.getElementById("conf").classList.remove("on");}
+function startCountdown(btn,ms){const end=Date.now()+ms;btn.disabled=true;const tick=()=>{const left=Math.ceil((end-Date.now())/1000);if(left<=0){btn.disabled=false;btn.textContent="İşlemi Yap";return;}btn.textContent=`Bekleyin (${left}s)`;setTimeout(tick,1000);};tick();}
+async function doAct(){closeConf();const un=document.getElementById("uinput").value.trim();const btn=document.getElementById("sbtn");btn.disabled=true;btn.textContent="İşleniyor...";try{const body={action:curAct,targetUsername:un,groupId:selGId};if(curAct==="setrank")body.rankId=selRId;const res=await fetch("/api/rank-action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const data=await res.json();if(!res.ok){showToast(data.error||"Hata oluştu.",true);if(res.status===429&&data.retryAfter){startCountdown(btn,data.retryAfter*1000);return;}}else{showToast(`${data.userName}: ${data.oldRole} → ${data.newRole}`,false);startCountdown(btn,COOLDOWN_MS);return;}}catch(e){showToast("Sunucuya bağlanılamadı.",true);}btn.disabled=false;btn.textContent="İşlemi Yap";}
+document.addEventListener("click",e=>{if(!e.target.closest(".cs")){document.querySelectorAll(".cs-dd").forEach(d=>d.classList.remove("open"));document.querySelectorAll(".cs-t").forEach(t=>t.classList.remove("open"));}});
+
+(async()=>{
+  const loMsgTimer=setTimeout(()=>document.getElementById("lo-msg").classList.add("show"),3000);
+  const cfg=await(await fetch("/api/config")).json();
+  const sn=cfg.siteName||"Pixlands";
+  SITE_NAME=sn;
+  document.getElementById("nav-name").textContent=sn;
+  document.getElementById("fname").textContent=sn;
+  document.getElementById("fcopy").textContent=`© 2026 ${sn} — Tüm hakları saklıdır.`;
+  const fd=document.getElementById("footer-discord");if(fd)fd.href=cfg.guildInvite||"/";
+  document.title=sn;
+  let me;
+  try{me=await(await fetch("/auth/me")).json();}catch(e){me={loggedIn:false};}
+  const lo=document.getElementById("lo");
+  clearTimeout(loMsgTimer);
+  if(!me.loggedIn){window.location.href="/";return;}
+  fetch("/auth/sync",{method:"POST"}).then(r=>r.json()).then(s=>{if(s.ok)curUser=s.user;});
+  curUser=me.user;const u=me.user;
+  setTimeout(()=>{lo.classList.add("out");lo.style.display="none";},2000);
+  const hasWarn=!u.in_guild||!u.roblox_username;
+  const dot=hasWarn?`<span class="warn-dot"></span>`:"";
+  const dotMob=hasWarn?`<span class="warn-dot-mob"></span>`:"";
+  const pill=`<div class="npill-wrap"><a href="/profile" class="npill"><img src="${av(u.id,u.avatar)}" alt=""/><span>${u.username}</span></a>${dot}</div>`;
+  const iconPill=`<div class="npill-icon-wrap"><a href="/profile" style="display:flex"><img src="${av(u.id,u.avatar)}" style="width:30px;height:30px;border-radius:50%" alt=""/></a>${dotMob}</div>`;
+  document.getElementById("nright").innerHTML=`<a href="/dashboard" class="nbtn-blue">Dashboard</a>${pill}`;
+  document.getElementById("mob-pill").innerHTML=iconPill;
+  document.getElementById("mob-act").innerHTML=``;
+
+  try{
+    const td=await(await fetch("/api/team")).json();
+    isTeam=(td.members||[]).some(m=>m.id===u.id);
+  }catch(e){}
+  const gameCard=document.getElementById("game-card");
+  const gameBadge=document.getElementById("game-badge");
+  if(isTeam){gameCard.classList.remove("disabled");gameBadge.textContent="Ekibe Özel";}
+  else{gameCard.classList.add("disabled");gameBadge.textContent="Yakında";}
+
+  if(!u.in_guild){const w=document.getElementById("rw-warn");w.classList.add("show");document.getElementById("rw-warn-t").textContent="Discord Sunucusuna Katılmadınız";document.getElementById("rw-warn-s").textContent="Dashboard'ı kullanmak için önce sunucumuza katılmalısınız.";}
+  else if(!u.roblox_username){const w=document.getElementById("rw-warn");w.classList.add("show");document.getElementById("rw-warn-t").textContent="RoWifi Verify Yapılmamış";document.getElementById("rw-warn-s").textContent="Rütbe işlemi yapabilmek için RoWifi ile Roblox hesabınızı doğrulayın.";}
+
+  try{
+    const cd=await(await fetch("/api/cooldown")).json();
+    if(cd.rank>0){
+      const btn=document.getElementById("sbtn");
+      if(btn) startCountdown(btn,cd.rank*1000);
+    }
+  }catch(e){}
+
+  const gr=await(await fetch("/api/groups")).json();groups=gr.groups||[];
+  const dd=document.getElementById("cs-g-dd");
+  if(!groups.length){dd.innerHTML='<div class="cs-empty">Grup bulunamadı.</div>';return;}
+  groups.forEach((g,i)=>{const o=document.createElement("div");o.className="cs-opt";if(g.icon){const img=document.createElement("img");img.src=g.icon;o.appendChild(img);}const sp=document.createElement("span");sp.textContent=g.name;o.appendChild(sp);o.onclick=()=>selectGroup(i);dd.appendChild(o);});
+})();
+</script>
+</body>
+</html>
