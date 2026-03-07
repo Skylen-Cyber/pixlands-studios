@@ -56,9 +56,9 @@
     .npill span{font-size:.8rem;font-weight:600;color:#fff;}
     .npill-icon img{width:30px;height:30px;border-radius:50%;object-fit:cover;}
     .npill-wrap{position:relative;display:inline-flex;}
-    .warn-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;animation:pulse-dot 1.8s ease-in-out infinite;}
+    .warn-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;}
     .npill-icon-wrap{position:relative;display:inline-flex;}
-    .warn-dot-mob{position:absolute;bottom:0;right:0;width:9px;height:9px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;animation:pulse-dot 1.8s ease-in-out infinite;}
+    .warn-dot-mob{position:absolute;bottom:0;right:0;width:9px;height:9px;background:#f87171;border:2px solid #0a0f1e;border-radius:50%;pointer-events:none;}
     /* HAMBURGER */
     .nham-area{display:none;align-items:center;gap:8px;}
     .nham{display:flex;flex-direction:column;gap:5px;cursor:pointer;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:7px;width:36px;height:36px;align-items:center;justify-content:center;padding:0;flex-shrink:0;}
@@ -324,6 +324,7 @@ async function loadTeam(){
         <div style="display:flex;gap:7px;margin-top:10px;" onclick="event.stopPropagation()">
           <a href="/profile?=${m.id}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.5);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:4px 10px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.1)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,.05)';this.style.color='rgba(255,255,255,.5)'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profil</a>
           <a href="https://discord.com/users/${m.id}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:#818cf8;background:rgba(88,101,242,.12);border:1px solid rgba(88,101,242,.25);border-radius:7px;padding:4px 10px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(88,101,242,.22)'" onmouseout="this.style.background='rgba(88,101,242,.12)'"><img src="/pngs/discord.png" style="width:12px;height:12px;object-fit:contain;opacity:.85" alt=""/>Discord</a>
+          ${m.roblox_id?`<a href="https://www.roblox.com/tr/users/${m.roblox_id}/profile" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.5);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:4px 10px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.1)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,.05)';this.style.color='rgba(255,255,255,.5)'"><img src="/pngs/roblox.png" style="width:12px;height:12px;object-fit:contain;opacity:.85" alt=""/>Roblox</a>`:""}
         </div>
       </div>`).join("");
     document.querySelectorAll(".tcard.an:not(.in)").forEach(el=>obs?.observe(el));
