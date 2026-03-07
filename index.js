@@ -392,7 +392,7 @@ app.post("/api/rank-action", requireAuth, async (req, res) => {
     const groupRoles = await noblox.getRoles(GROUP_ID);
     const sortedRoles = groupRoles.filter(r => r.rank > 0 && r.rank < 255).sort((a, b) => a.rank - b.rank);
     const ISSUER_RANK = await noblox.getRankInGroup(GROUP_ID, sessionRobloxId);
-    const teamMember = isTeamMember(req.session.user.id);
+    const teamMember = await isTeamMemberAsync(req.session.user.id);
     const minAdmin = groupCfg.minAdminRank || 0;
     if (!teamMember && minAdmin > 0 && ISSUER_RANK < minAdmin) return res.status(403).json({ error: `Bu grupta işlem yapabilmek için en az ${minAdmin} rankına sahip olmanız gerekiyor.` });
     if (!teamMember && ISSUER_RANK === 0) return res.status(403).json({ error: "Siz bu grupta bulunmuyorsunuz." });
@@ -603,13 +603,17 @@ async function requireTeam(req, res, next) {
 }
 
 // Oyun bazlı rank kontrolü — kullanıcının o oyun için minAdminRank'ı karşılayıp karşılamadığını kontrol eder
-async function checkGameAccess(robloxId, placeId) {
+async function checkGameAccess(robloxId, placeId, discordId) {
   const games = await getGames();
   const game = games.find(g => g.placeId === placeId);
   if (!game) return { ok: false, reason: "Oyun bulunamadı." };
   const minRank = game.minAdminRank || 0;
   if (minRank === 0) return { ok: true };
-  // İlk grubu referans al
+  // Ekip üyesiyse rank kontrolü bypass
+  if (discordId) {
+    const teamMember = await isTeamMemberAsync(discordId);
+    if (teamMember) return { ok: true };
+  }
   const allGroups = await getGroups();
   const group = allGroups[0];
   if (!group) return { ok: true };
@@ -670,7 +674,7 @@ app.post("/api/game-ban", requireAuth, requireTeam, async (req, res) => {
   if (!placeId || !userId) return res.status(400).json({ error: "Eksik parametre." });
   const sessionRobloxId = req.session.user.roblox_id;
   if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
-  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId), req.session.user.id);
   if (!access.ok) return res.status(403).json({ error: access.reason });
   try {
     const banReason = reason || "Pixlands yönetimi tarafından yasaklandınız.";
@@ -691,7 +695,7 @@ app.post("/api/game-unban", requireAuth, requireTeam, async (req, res) => {
   if (!placeId || !userId) return res.status(400).json({ error: "Eksik parametre." });
   const sessionRobloxId = req.session.user.roblox_id;
   if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
-  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId), req.session.user.id);
   if (!access.ok) return res.status(403).json({ error: access.reason });
   try {
     await ocDataStoreDelete(parseInt(placeId), String(userId));
@@ -793,7 +797,7 @@ app.post("/api/game-server-ban", requireAuth, requireTeam, async (req, res) => {
   if (!placeId || !serverId || !userId) return res.status(400).json({ error: "Eksik parametre." });
   const sessionRobloxId = req.session.user.roblox_id;
   if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
-  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId), req.session.user.id);
   if (!access.ok) return res.status(403).json({ error: access.reason });
   const banReason = reason || "Bu sunucudan yasaklandınız.";
   if (!serverBanCache[placeId]) serverBanCache[placeId] = {};
@@ -842,7 +846,7 @@ app.post("/api/game-kick", requireAuth, requireTeam, async (req, res) => {
   if (!placeId || !userId) return res.status(400).json({ error: "Eksik parametre." });
   const sessionRobloxId = req.session.user.roblox_id;
   if (!sessionRobloxId) return res.status(403).json({ error: "Roblox hesabınız doğrulanmamış." });
-  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId));
+  const access = await checkGameAccess(sessionRobloxId, parseInt(placeId), req.session.user.id);
   if (!access.ok) return res.status(403).json({ error: access.reason });
   try {
     await ocMessagingPublish(parseInt(placeId), "Kick", { userid: userId, reason: reason || "Sunucudan atıldınız." });

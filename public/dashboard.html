@@ -598,6 +598,8 @@ function backFromGame(){
   if(pv.style.display!=="none"){
     _clearPlrRefresh();
     pv.style.display="none";sv.style.display="block";
+    // Hemen güncelle, sonra interval başlat
+    _loadServerGrid(curPlaceId, true).then(()=>{_tickSrvIndicator();});
     _startSrvRefresh();
     return;
   }
@@ -640,7 +642,7 @@ async function loadGames(){
   try{
     const d=await(await fetch("/api/games")).json();
     if(!d.games||!d.games.length){
-      grid.innerHTML="<div style=\"color:rgba(255,255,255,.35);font-size:.88rem\">config.js'de oyun tanımlı değil.</div>";
+      grid.innerHTML="<div style=\"color:rgba(255,255,255,.35);font-size:.88rem\">Henüz oyun eklenmemiş. Site Yönetimi'nden oyun ekleyebilirsin.</div>";
       return;
     }
     // Her oyun için sunucu sayısını çek
@@ -664,8 +666,11 @@ async function loadGames(){
         card.onmouseenter=function(){this.style.transform="translateY(-2px)";this.style.background="rgba(96,165,250,.06)";this.style.borderColor="rgba(96,165,250,.28)";this.style.boxShadow="0 8px 28px rgba(0,0,0,.3)";};
         card.onmouseleave=function(){this.style.transform="";this.style.background="rgba(255,255,255,.04)";this.style.borderColor="rgba(255,255,255,.08)";this.style.boxShadow="";};
       } else {
-        card.style.cursor="not-allowed";
-        card.style.opacity=".55";
+        card.style.cursor="pointer";
+        card.style.opacity=".7";
+        card.onclick=function(){selectGame(g.placeId,encodeURIComponent(g.name));};
+        card.onmouseenter=function(){this.style.transform="translateY(-2px)";this.style.background="rgba(255,255,255,.06)";this.style.borderColor="rgba(255,255,255,.15)";this.style.boxShadow="0 8px 28px rgba(0,0,0,.3)";this.style.opacity="1";};
+        card.onmouseleave=function(){this.style.transform="";this.style.background="rgba(255,255,255,.04)";this.style.borderColor="rgba(255,255,255,.08)";this.style.boxShadow="";this.style.opacity=".7";};
       }
       // İkon
       if(g.icon){
@@ -718,10 +723,15 @@ async function _loadServerGrid(placeId, silent){
     const total=curServers.reduce((a,s)=>a+s.playerCount,0);
     document.getElementById("gv-total").textContent=curServers.length?`Toplam ${total} oyuncu`:"0 oyuncu";
     if(!curServers.length){
-      // Tüm sunucular boşaldıysa oyuncu view'ında değilsek listeye geri dön
+      sg.innerHTML=`<div style="color:rgba(255,255,255,.35);font-size:.88rem;grid-column:1/-1">Aktif sunucu yok.</div>`;
+      // Player view açıksa server view'a geç (sunucu boşaldı)
       const pv=document.getElementById("game-player-view");
-      if(pv.style.display==="none"){
-        sg.innerHTML=`<div style="color:rgba(255,255,255,.35);font-size:.88rem;grid-column:1/-1">Aktif sunucu yok.</div>`;
+      const sv=document.getElementById("game-server-view");
+      if(pv.style.display!=="none"&&!silent){
+        _clearPlrRefresh();
+        pv.style.display="none";sv.style.display="block";
+        selPlayer=null;updateSelInfo();
+        showToast("Sunucu kapandı, sunucu listesine dönüldü.");
       }
       return;
     }
@@ -831,6 +841,8 @@ function _renderPlayerList(players, silent){
     selPlayer=null;updateSelInfo();
     showToast("Seçili oyuncu sunucudan ayrıldı.");
   }
+  // Sunucu doluluğuna göre join butonunu güncelle
+  _updateJoinBtn();
 }
 
 async function _loadPlayerList(placeId, serverId, silent){
@@ -859,6 +871,17 @@ function _tickPlrIndicator(){
   el.style.background="#4ade80";
   setTimeout(()=>{el.style.background="rgba(255,255,255,.2)";},600);
 }
+function _updateJoinBtn(){
+  // Sunucuyu bul, dolu ise join butonu disabled
+  const srv=curServers.find(s=>s.id===curServerId);
+  const btn=document.getElementById("join-btn");
+  if(!btn) return;
+  if(srv&&srv.playerCount>=srv.maxPlayers){
+    btn.style.opacity=".45";btn.style.pointerEvents="none";btn.title="Sunucu dolu";
+  } else {
+    btn.style.opacity="";btn.style.pointerEvents="";btn.title="";
+  }
+}
 
 async function selectServer(serverId,placeId,srvNum){
   _clearSrvRefresh();_clearPlrRefresh();
@@ -869,6 +892,8 @@ async function selectServer(serverId,placeId,srvNum){
   document.getElementById("pv-srv-label").textContent="Server "+srvNum;
   document.getElementById("join-btn").href="https://www.roblox.com/games/start?placeId="+placeId+"&gameInstanceId="+serverId;
   selPlayer=null;updateSelInfo();
+  // Join butonu: ilk yüklemede server durumuna göre ayarla
+  _updateJoinBtn();
   ["btn-server-ban","btn-global-ban","btn-kick"].forEach(function(id){
     var btn=document.getElementById(id);if(btn)btn.disabled=true;
   });

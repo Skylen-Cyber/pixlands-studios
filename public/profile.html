@@ -135,6 +135,18 @@
     .footer-discord{display:inline-flex;align-items:center;gap:5px;background:rgba(88,101,242,.13);border:1px solid rgba(88,101,242,.28);border-radius:7px;padding:4px 10px;font-size:.73rem;font-weight:600;color:#818cf8;text-decoration:none;transition:background .15s;}
     .footer-discord:hover{background:rgba(88,101,242,.22);}
     @media(max-width:700px){footer{flex-direction:column;align-items:center;padding:14px 20px;gap:10px;}.fbrand{flex:none;justify-content:center;}.fcopy{flex:none;text-align:center;}.footer-links{flex:none;justify-content:center;flex-wrap:wrap;}}
+    /* KÖŞE UYARI */
+    #corner-warn{position:fixed;bottom:22px;right:22px;z-index:800;display:flex;flex-direction:column;gap:9px;pointer-events:none;}
+    .cwarn{display:flex;align-items:flex-start;gap:11px;background:#131928;border:1px solid rgba(234,179,8,.28);border-radius:13px;padding:13px 15px;max-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.45);pointer-events:all;opacity:0;transform:translateX(24px);transition:opacity .4s ease,transform .4s ease;}
+    .cwarn.show{opacity:1;transform:translateX(0);}
+    .cwarn-icon{width:18px;height:18px;flex-shrink:0;margin-top:1px;}
+    .cwarn-body{flex:1;min-width:0;}
+    .cwarn-title{font-size:.82rem;font-weight:800;color:#fbbf24;margin-bottom:2px;}
+    .cwarn-sub{font-size:.73rem;color:rgba(255,255,255,.45);line-height:1.45;}
+    .cwarn-close{background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:1rem;line-height:1;padding:0 0 0 6px;flex-shrink:0;transition:color .15s;}
+    .cwarn-close:hover{color:#fff;}
+    .cwarn.rw{border-color:rgba(248,113,113,.28);}
+    .cwarn.rw .cwarn-title{color:#f87171;}
   </style>
 </head>
 <body>
@@ -173,6 +185,7 @@
 
 <div id="conf"><div id="conf-bg" onclick="closeConf()"></div><div id="conf-box"><h3>Oturumu Kapat</h3><p>Hesabından çıkış yapmak istediğinden emin misin?</p><div class="cbts"><button class="cno" onclick="closeConf()">İptal</button><button class="cyes" onclick="doLogout()">Çıkış Yap</button></div></div></div>
 
+<div id="corner-warn"></div>
 <footer>
   <div class="fbrand"><img src="/pngs/pixlands.png" alt=""/><span id="fname">Pixlands</span></div>
   <div class="fcopy" id="fcopy">© 2026 Pixlands — Tüm hakları saklıdır.</div>
@@ -195,6 +208,22 @@ function closeMob(){document.getElementById("mob").classList.remove("open");docu
 function openConf(){document.getElementById("conf").classList.add("on");}
 function closeConf(){document.getElementById("conf").classList.remove("on");}
 async function doLogout(){try{await fetch("/auth/logout",{method:"POST"});}catch(e){}window.location.href="/";}
+function _showCornerWarns(u){
+  const wrap=document.getElementById("corner-warn");
+  if(!wrap)return;
+  wrap.innerHTML="";
+  const warns=[];
+  if(!u.in_guild)warns.push({cls:"",title:"Discord Sunucusuna Katılmadın",sub:"Dashboard özelliklerini kullanmak için sunucumuza katıl."});
+  if(!u.roblox_username)warns.push({cls:"rw",title:"RoWifi Verify Yapılmamış",sub:"Rütbe işlemi yapabilmek için RoWifi ile Roblox hesabını doğrula."});
+  warns.forEach(function(w,i){
+    const el=document.createElement("div");
+    el.className="cwarn "+(w.cls||"");
+    el.innerHTML=`<svg class="cwarn-icon" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div class="cwarn-body"><div class="cwarn-title">${w.title}</div><div class="cwarn-sub">${w.sub}</div></div><button class="cwarn-close" onclick="this.closest('.cwarn').style.opacity='0';setTimeout(()=>this.closest('.cwarn').remove(),400)">✕</button>`;
+    if(w.cls==="rw")el.querySelector("svg").style.stroke="#f87171";
+    wrap.appendChild(el);
+    setTimeout(()=>el.classList.add("show"),100+i*180);
+  });
+}
 let lastRef=0;
 function showRefMsg(type,msg){const el=document.getElementById("rmsg");if(!el)return;el.textContent=msg;el.className="rmsg show "+type;setTimeout(()=>el.classList.remove("show"),3500);}
 async function refreshRowifi(){
@@ -357,6 +386,8 @@ async function adminRefresh(targetId){
   await render(u,teamRole,true,false);
   setTimeout(()=>lo.classList.add("out"),2000);
   history.replaceState({},"",`/profile?=${u.id}`);
+  // Köşe uyarı — sadece kendi profilinde
+  _showCornerWarns(u);
 
 })();
 </script>
